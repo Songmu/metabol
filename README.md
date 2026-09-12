@@ -44,6 +44,7 @@ $ npm install --global @songmu/mdhq@0.0.5
 By default, `thresh` reads `thresh.yaml` from the current directory:
 
 ```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Songmu/thresh/main/schema.yaml
 root: path/to/articles
 assets: false
 update: false
