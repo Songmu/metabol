@@ -69,6 +69,10 @@ func run(
 	}
 	var failures []error
 	for _, window := range windows {
+		if err := ctx.Err(); err != nil {
+			failures = append(failures, err)
+			break
+		}
 		if err := pipeline.Run(ctx, PipelineRequest{
 			Sources: sources,
 			Since:   window.Start,

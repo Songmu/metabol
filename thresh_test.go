@@ -258,6 +258,55 @@ func (p *failFirstPipeline) Run(
 	return nil
 }
 
+type cancelingPipeline struct {
+	cancel   context.CancelFunc
+	requests []PipelineRequest
+}
+
+func (p *cancelingPipeline) Run(
+	_ context.Context,
+	request PipelineRequest,
+	_, _ io.Writer,
+) error {
+	p.requests = append(p.requests, request)
+	p.cancel()
+	return nil
+}
+
+func TestRunChecksCancellationBeforeEachWindow(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	err := os.WriteFile(configPath, []byte(`
+root: ./articles
+timezone: UTC
+window:
+  daily: "07:00"
+  count: 2
+sources:
+  - https://example.com/feed.xml
+`), 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	pipeline := &cancelingPipeline{cancel: cancel}
+	err = run(
+		ctx,
+		[]string{"--config", configPath},
+		io.Discard,
+		io.Discard,
+		func() time.Time { return time.Date(2026, 9, 12, 19, 0, 0, 0, time.UTC) },
+		func(string) (string, bool) { return "", false },
+		pipeline,
+	)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("run error = %v, want context.Canceled", err)
+	}
+	if got, want := len(pipeline.requests), 1; got != want {
+		t.Fatalf("pipeline runs = %d, want %d", got, want)
+	}
+}
+
 func TestRunContinuesAfterWindowFailure(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	err := os.WriteFile(configPath, []byte(`
