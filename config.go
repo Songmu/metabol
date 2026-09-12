@@ -86,18 +86,49 @@ func ValidateArticleURL(rawURL string) error {
 	}
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return fmt.Errorf("invalid url %q: %w", rawURL, err)
+		return fmt.Errorf("invalid url %q", safeURLDisplay(rawURL))
 	}
 	if u.Scheme != "http" && u.Scheme != "https" {
-		return fmt.Errorf("url %q must use http or https", rawURL)
+		return fmt.Errorf("url %q must use http or https", safeURLDisplay(rawURL))
 	}
 	if u.Host == "" {
-		return fmt.Errorf("url %q must be absolute", rawURL)
+		return fmt.Errorf("url %q must be absolute", safeURLDisplay(rawURL))
 	}
 	if u.User != nil {
-		return fmt.Errorf("url %q must not contain userinfo", rawURL)
+		return fmt.Errorf("url %q must not contain userinfo", safeURLDisplay(rawURL))
 	}
 	return nil
+}
+
+func safeURLDisplay(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err == nil {
+		safe := *u
+		safe.User = nil
+		return safe.String()
+	}
+
+	authorityStart := 0
+	if strings.HasPrefix(rawURL, "//") {
+		authorityStart = len("//")
+	} else {
+		schemeEnd := strings.Index(rawURL, "://")
+		if schemeEnd < 0 {
+			return rawURL
+		}
+		authorityStart = schemeEnd + len("://")
+	}
+	authorityEnd := len(rawURL)
+	if offset := strings.IndexAny(rawURL[authorityStart:], "/?#"); offset >= 0 {
+		authorityEnd = authorityStart + offset
+	}
+	at := strings.LastIndex(rawURL[authorityStart:authorityEnd], "@")
+	if at < 0 {
+		return rawURL
+	}
+	return rawURL[:authorityStart] +
+		rawURL[authorityStart+at+1:authorityEnd] +
+		rawURL[authorityEnd:]
 }
 
 // DailyTime is a parsed local-time daily boundary.

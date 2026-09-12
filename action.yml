@@ -6,7 +6,7 @@ inputs:
     description: Version of thresh to install; defaults to an exact version action ref or latest
     required: false
   mdhq-version:
-    description: Version of @songmu/mdhq to install
+    description: Version of @songmu/mdhq to install; default 0.0.4 requires Node.js 22 or later
     required: false
     default: 0.0.4
   config:
@@ -85,7 +85,7 @@ runs:
 
         npm install --global --prefix "$mdhq_prefix" \
           "@songmu/mdhq@${MDHQ_VERSION_INPUT}"
-        export PATH="$thresh_bin:$mdhq_prefix/bin:$PATH"
+        export PATH="$thresh_bin:$mdhq_prefix/bin:$mdhq_prefix:$PATH"
 
         args=()
         [[ -n "$CONFIG_INPUT" ]] && args+=(--config "$CONFIG_INPUT")

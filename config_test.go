@@ -65,14 +65,24 @@ func TestSourceUnmarshalYAML(t *testing.T) {
 
 func TestConfigValidate(t *testing.T) {
 	tests := []struct {
-		name    string
-		mutate  func(*Config)
-		wantErr string
+		name        string
+		mutate      func(*Config)
+		wantErr     string
+		wantPresent string
+		wantAbsent  []string
 	}{
 		{name: "valid", mutate: func(*Config) {}},
 		{name: "no sources", mutate: func(c *Config) { c.Sources = nil }, wantErr: "sources must not be empty"},
 		{name: "relative source", mutate: func(c *Config) { c.Sources[0].URL = "/feed" }, wantErr: "must use http or https"},
-		{name: "source userinfo", mutate: func(c *Config) { c.Sources[0].URL = "https://user@example.com/feed" }, wantErr: "must not contain userinfo"},
+		{
+			name: "source userinfo",
+			mutate: func(c *Config) {
+				c.Sources[0].URL = "https://alice:swordfish@example.com/feed"
+			},
+			wantErr:     "must not contain userinfo",
+			wantPresent: "https://example.com/feed",
+			wantAbsent:  []string{"alice", "swordfish"},
+		},
 		{name: "invalid daily", mutate: func(c *Config) { c.Window.Daily = "7:30" }, wantErr: "HH:MM"},
 	}
 	for _, tt := range tests {
@@ -88,6 +98,74 @@ func TestConfigValidate(t *testing.T) {
 			}
 			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 				t.Fatalf("got error %v, want containing %q", err, tt.wantErr)
+			}
+			if tt.wantPresent != "" && !strings.Contains(err.Error(), tt.wantPresent) {
+				t.Errorf("error %q does not contain safe URL context %q", err, tt.wantPresent)
+			}
+			for _, value := range tt.wantAbsent {
+				if strings.Contains(err.Error(), value) {
+					t.Errorf("error %q contains credential %q", err, value)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateArticleURLRedactsUserinfoFromEveryErrorPath(t *testing.T) {
+	tests := []struct {
+		name        string
+		rawURL      string
+		wantError   string
+		wantContext string
+	}{
+		{
+			name:        "parse",
+			rawURL:      "https://alice:swordfish@example.com/%zz",
+			wantError:   "invalid url",
+			wantContext: "https://example.com/%zz",
+		},
+		{
+			name:        "parse network path",
+			rawURL:      "//alice:swordfish@example.com/%zz",
+			wantError:   "invalid url",
+			wantContext: "//example.com/%zz",
+		},
+		{
+			name:        "scheme",
+			rawURL:      "ftp://alice:swordfish@example.com/feed",
+			wantError:   "must use http or https",
+			wantContext: "ftp://example.com/feed",
+		},
+		{
+			name:        "absolute",
+			rawURL:      "https://alice:swordfish@/feed",
+			wantError:   "must be absolute",
+			wantContext: "https:///feed",
+		},
+		{
+			name:        "userinfo",
+			rawURL:      "https://alice:swordfish@example.com/feed",
+			wantError:   "must not contain userinfo",
+			wantContext: "https://example.com/feed",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateArticleURL(tt.rawURL)
+			if err == nil {
+				t.Fatal("ValidateArticleURL error = nil")
+			}
+			message := err.Error()
+			if !strings.Contains(message, tt.wantError) {
+				t.Errorf("error %q does not contain %q", message, tt.wantError)
+			}
+			if !strings.Contains(message, tt.wantContext) {
+				t.Errorf("error %q does not contain safe URL context %q", message, tt.wantContext)
+			}
+			for _, credential := range []string{"alice", "swordfish"} {
+				if strings.Contains(message, credential) {
+					t.Errorf("error %q contains credential %q", message, credential)
+				}
 			}
 		})
 	}

@@ -224,7 +224,7 @@ func compactTimes(values []time.Time) []time.Time {
 
 // resolveLocalTime maps a wall-clock value to an instant without depending on
 // time.Date's undocumented choice during overlaps. Exact matches choose the
-// earlier instant; gaps choose the closest realizable wall time after the gap.
+// earlier instant; nonexistent wall times shift forward by the transition delta.
 func resolveLocalTime(
 	location *time.Location,
 	year int,

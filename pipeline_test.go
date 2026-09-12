@@ -49,6 +49,7 @@ type fakeMDHQResponse struct {
 type fakeMDHQ struct {
 	responses map[string]fakeMDHQResponse
 	calls     []mdhqCall
+	afterGet  func()
 }
 
 func (m *fakeMDHQ) Get(
@@ -58,6 +59,9 @@ func (m *fakeMDHQ) Get(
 ) (MDHQResult, error) {
 	m.calls = append(m.calls, mdhqCall{url: url, options: options})
 	response := m.responses[url]
+	if m.afterGet != nil {
+		m.afterGet()
+	}
 	return response.result, response.err
 }
 
@@ -238,6 +242,12 @@ func TestCollectFeedsRejectsNonHTTPArticleURLs(t *testing.T) {
 			},
 		},
 	}
+	credentialUsername := "private-login"
+	credentialPassword := "private-password"
+	response := fetcher.responses["feed-a"]
+	response.items[3].URL = "https://" + credentialUsername + ":" +
+		credentialPassword + "@example.com/secret"
+	fetcher.responses["feed-a"] = response
 
 	got, err := CollectFeeds(
 		context.Background(),
@@ -259,8 +269,22 @@ func TestCollectFeedsRejectsNonHTTPArticleURLs(t *testing.T) {
 		`skip item from source "feed-a": url "/relative/path" must use http or https`,
 		`skip item from source "feed-a": url "https://user:pass@example.com/secret" must not contain userinfo`,
 	} {
+		if strings.HasSuffix(message, "must not contain userinfo") {
+			continue
+		}
 		if !strings.Contains(err.Error(), message) {
 			t.Errorf("CollectFeeds error %q does not contain %q", err, message)
+		}
+	}
+	if !strings.Contains(
+		err.Error(),
+		`skip item from source "feed-a": url "https://example.com/secret" must not contain userinfo`,
+	) {
+		t.Errorf("CollectFeeds error %q does not retain safe URL context", err)
+	}
+	for _, credential := range []string{credentialUsername, credentialPassword} {
+		if strings.Contains(err.Error(), credential) {
+			t.Errorf("CollectFeeds error %q contains credential %q", err, credential)
 		}
 	}
 	if got := strings.Count(err.Error(), "--root=/tmp/evil"); got != 1 {
@@ -298,4 +322,101 @@ func TestCollectFeedsStopsWhenContextIsCanceled(t *testing.T) {
 	if len(fetcher.calls) != 0 {
 		t.Fatalf("fetch calls = %#v, want none", fetcher.calls)
 	}
+}
+
+func TestPipelineRunReportsCancellationBetweenArticlesOnce(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	fetcher := &fakeFeedFetcher{
+		responses: map[string]fakeFeedResponse{
+			"feed-a": {
+				items: []FeedItem{
+					{URL: "https://example.com/1"},
+					{URL: "https://example.com/2"},
+				},
+			},
+		},
+	}
+	mdhq := &fakeMDHQ{
+		responses: map[string]fakeMDHQResponse{
+			"https://example.com/1": {
+				result: MDHQResult{
+					RequestedURL: "https://example.com/1",
+					SourceURL:    "https://example.com/1",
+					Path:         "/root/1.md",
+					Status:       "saved",
+				},
+			},
+		},
+		afterGet: cancel,
+	}
+	var stdout, stderr bytes.Buffer
+	err := NewPipeline(fetcher, mdhq).Run(
+		ctx,
+		PipelineRequest{Sources: []string{"feed-a"}},
+		&stdout,
+		&stderr,
+	)
+
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("Pipeline.Run error = %v, want context.Canceled", err)
+	}
+	if got, want := stderr.String(), "context canceled\n"; got != want {
+		t.Fatalf("stderr = %q, want %q", got, want)
+	}
+	if got, want := len(mdhq.calls), 1; got != want {
+		t.Fatalf("mdhq calls = %d, want %d", got, want)
+	}
+}
+
+func TestPipelineRunDoesNotRepeatCancellationLoggedDuringCollection(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	fetcher := feedFetcherFunc(func(
+		_ context.Context,
+		source string,
+		_, _ time.Time,
+	) ([]FeedItem, error) {
+		if source == "feed-a" {
+			cancel()
+			return []FeedItem{{URL: "https://example.com/1"}}, nil
+		}
+		t.Fatalf("Fetch called for %q after cancellation", source)
+		return nil, nil
+	})
+	mdhq := &fakeMDHQ{responses: map[string]fakeMDHQResponse{}}
+	var stdout, stderr bytes.Buffer
+	err := NewPipeline(fetcher, mdhq).Run(
+		ctx,
+		PipelineRequest{Sources: []string{"feed-a", "feed-b"}},
+		&stdout,
+		&stderr,
+	)
+
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("Pipeline.Run error = %v, want context.Canceled", err)
+	}
+	if got, want := stderr.String(), "context canceled\n"; got != want {
+		t.Fatalf("stderr = %q, want %q", got, want)
+	}
+	if len(mdhq.calls) != 0 {
+		t.Fatalf("mdhq calls = %#v, want none", mdhq.calls)
+	}
+}
+
+type feedFetcherFunc func(
+	context.Context,
+	string,
+	time.Time,
+	time.Time,
+) ([]FeedItem, error)
+
+func (f feedFetcherFunc) Fetch(
+	ctx context.Context,
+	source string,
+	since, until time.Time,
+) ([]FeedItem, error) {
+	return f(ctx, source, since, until)
 }

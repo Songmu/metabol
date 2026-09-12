@@ -179,7 +179,10 @@ func (p *Pipeline) Run(
 	}
 	for _, article := range urls {
 		if err := ctx.Err(); err != nil {
-			failures = append(failures, err)
+			if !errors.Is(collectErr, err) {
+				failures = append(failures, err)
+				fmt.Fprintln(stderr, err)
+			}
 			break
 		}
 		result, err := p.MDHQ.Get(ctx, article.URL, options)

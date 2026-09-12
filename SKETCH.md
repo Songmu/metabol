@@ -448,13 +448,14 @@ $ thresh
 
 を基本形とする。将来的にサブコマンドを追加する可能性はある。
 
-明示的な window 指定や backfill のインターフェースは将来的に検討する。例えば、
+`--at` または `THRESH_AT` で基準時刻を明示し、設定された window definition に基づいて、その時刻を含む logical window を選択できる。
 
 ```console
 $ thresh --at 2026-09-11
+$ THRESH_AT=2026-09-11T10:30:00+09:00 thresh
 ```
 
-のように、設定された window definition に基づいて特定の logical window を選択できるとよい。重要なのは、任意の過去 window の処理を DB や実行履歴なしに再要求できることである。
+RFC 3339 timestamp と `YYYY-MM-DD` を受け付ける。日付だけの場合は設定 timezone の `00:00` として扱い、boundary と一致する時刻はその boundary から始まる window に含める。これにより、任意の過去 window を DB や実行履歴なしに再要求できる。
 
 ただし、過去の記事が feed に残っているかどうかは情報源に依存するため、過去 window の取得は best effort とする。
 
@@ -526,7 +527,7 @@ sources:
 ```text
 1. thresh.yaml を読み込む
 2. timezone を決定する
-3. 現在時刻から last complete window を求める
+3. `--at` / `THRESH_AT` があればその基準時刻を含む window、なければ現在時刻から last complete window を求める
    [2026-09-10 07:00, 2026-09-11 07:00)
 4. 各 source に対して rssnip を実行する
 5. window に含まれる記事 URL を得る
@@ -608,12 +609,14 @@ sources:
 
 ```console
 $ thresh
+$ thresh --at 2026-09-11
 ```
 
-だけで、
+により、
 
 ```text
 last complete daily window
+or explicitly selected daily window
         ↓
 configured feeds
         ↓
@@ -631,7 +634,6 @@ Markdown files
 この小さな核をまず成立させ、その後必要に応じて、
 
 * source object
-* explicit window selection / backfill
 * hourly / weekly / monthly window
 * cron boundary
 
@@ -641,7 +643,7 @@ Markdown files
 
 `thresh` は、
 
-> **scheduler から独立した固定 time window を設定から決定し、その last-complete window について複数 source から記事を収集し、`rssnip` と `mdhq` を組み合わせて Markdown として蓄積する stateless なオーケストレーター**
+> **scheduler から独立した固定 time window を設定から決定し、デフォルトの last-complete window または `--at` / `THRESH_AT` で明示した window について複数 source から記事を収集し、`rssnip` と `mdhq` を組み合わせて Markdown として蓄積する stateless なオーケストレーター**
 
 である。
 
@@ -650,10 +652,11 @@ Markdown files
 ```text
 window.daily = 07:00
 + last-complete by default
++ explicit selection by --at / THRESH_AT
 + [start, end)
 ```
 
-の3点。
+の4点。
 
 システム設計の核は、
 

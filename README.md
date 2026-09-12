@@ -31,11 +31,12 @@ $ curl -sfL https://raw.githubusercontent.com/Songmu/thresh/main/install.sh |
 $ go install github.com/Songmu/thresh/cmd/thresh@latest
 ```
 
-`thresh` invokes `mdhq` as an external command, so install it separately and
-ensure it is on `PATH`:
+**Prerequisite:** The supported, pinned `@songmu/mdhq` version, `0.0.4`,
+requires Node.js 22 or later. `thresh` invokes `mdhq` as an external command,
+so install it separately and ensure it is on `PATH`:
 
 ```console
-$ npm install --global @songmu/mdhq
+$ npm install --global @songmu/mdhq@0.0.4
 ```
 
 ## Configuration
@@ -147,6 +148,9 @@ all possible work is complete. Configuration, validation, and window
 calculation errors fail before article processing.
 
 ## GitHub Action
+
+**Prerequisite:** The runner must provide Node.js 22 or later because the
+default pinned `@songmu/mdhq` version, `0.0.4`, requires it.
 
 The repository includes a composite action that installs `thresh` and an
 isolated, pinned `@songmu/mdhq`, then captures stdout as a JSONL manifest:
