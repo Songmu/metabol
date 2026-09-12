@@ -1,0 +1,117 @@
+name: Run thresh
+description: Collect articles for a logical time window and save them as Markdown
+author: Songmu
+inputs:
+  version:
+    description: Version of thresh to install; defaults to an exact version action ref or latest
+    required: false
+  mdhq-version:
+    description: Version of @songmu/mdhq to install; default 0.0.5 requires Node.js 22 or later
+    required: false
+    default: 0.0.5
+  config:
+    description: Path to the thresh configuration file
+    required: false
+  root:
+    description: Directory in which mdhq stores Markdown
+    required: false
+  assets:
+    description: Whether to download article assets
+    required: false
+  update:
+    description: Whether to update existing Markdown
+    required: false
+  timezone:
+    description: IANA timezone used to calculate the processing window
+    required: false
+  at:
+    description: RFC 3339 timestamp or YYYY-MM-DD date selecting a logical window
+    required: false
+outputs:
+  manifest:
+    description: Absolute path to the JSONL manifest
+    value: ${{ steps.thresh.outputs.manifest }}
+  count:
+    description: Number of nonempty lines in the JSONL manifest
+    value: ${{ steps.thresh.outputs.count }}
+runs:
+  using: composite
+  steps:
+    - name: Install and run thresh
+      id: thresh
+      shell: bash
+      env:
+        ACTION_REF: ${{ github.action_ref }}
+        THRESH_VERSION_INPUT: ${{ inputs.version }}
+        MDHQ_VERSION_INPUT: ${{ inputs.mdhq-version }}
+        CONFIG_INPUT: ${{ inputs.config }}
+        ROOT_INPUT: ${{ inputs.root }}
+        ASSETS_INPUT: ${{ inputs.assets }}
+        UPDATE_INPUT: ${{ inputs.update }}
+        TIMEZONE_INPUT: ${{ inputs.timezone }}
+        AT_INPUT: ${{ inputs.at }}
+      run: |
+        set -euo pipefail
+
+        cd "$GITHUB_WORKSPACE"
+        thresh_bin="$(mktemp -d)"
+        mdhq_prefix="$(mktemp -d)"
+        trap 'rm -rf "$thresh_bin" "$mdhq_prefix"' EXIT
+
+        manifest_base="$(mktemp "${RUNNER_TEMP%/}/thresh-manifest.XXXXXX")"
+        manifest="${manifest_base}.jsonl"
+        mv "$manifest_base" "$manifest"
+        {
+          echo "manifest=$manifest"
+          echo "count=0"
+        } >> "$GITHUB_OUTPUT"
+
+        action_ref="${ACTION_REF:-main}"
+        thresh_version="$THRESH_VERSION_INPUT"
+        if [[ -z "$thresh_version" ]]; then
+          semver_core='(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)'
+          semver_identifier='(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)'
+          semver_prerelease="(-${semver_identifier}(\.${semver_identifier})*)?"
+          semver_build='(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?'
+          if [[ "$action_ref" =~ ^v${semver_core}${semver_prerelease}${semver_build}$ ]]; then
+            thresh_version="$action_ref"
+          else
+            thresh_version="latest"
+          fi
+        fi
+        curl -sfL --retry 3 \
+          "https://raw.githubusercontent.com/Songmu/thresh/${action_ref}/install.sh" |
+          sh -s -- -b "$thresh_bin" "$thresh_version" 2>&1
+
+        npm install --global --prefix "$mdhq_prefix" \
+          "@songmu/mdhq@${MDHQ_VERSION_INPUT}"
+        export PATH="$thresh_bin:$mdhq_prefix/bin:$mdhq_prefix:$PATH"
+
+        args=()
+        [[ -n "$CONFIG_INPUT" ]] && args+=(--config "$CONFIG_INPUT")
+        [[ -n "$ROOT_INPUT" ]] && args+=(--root "$ROOT_INPUT")
+        [[ -n "$ASSETS_INPUT" ]] && args+=(--assets="$ASSETS_INPUT")
+        [[ -n "$UPDATE_INPUT" ]] && args+=(--update="$UPDATE_INPUT")
+        [[ -n "$TIMEZONE_INPUT" ]] && args+=(--timezone "$TIMEZONE_INPUT")
+        [[ -n "$AT_INPUT" ]] && args+=(--at "$AT_INPUT")
+
+        set +e
+        thresh "${args[@]}" | tee "$manifest"
+        statuses=("${PIPESTATUS[@]}")
+        set -e
+
+        status="${statuses[0]}"
+        if [[ "$status" -eq 0 && "${statuses[1]}" -ne 0 ]]; then
+          status="${statuses[1]}"
+        fi
+        count="$(awk 'NF { count++ } END { print count + 0 }' "$manifest")"
+
+        {
+          echo "manifest=$manifest"
+          echo "count=$count"
+        } >> "$GITHUB_OUTPUT"
+
+        exit "$status"
+branding:
+  icon: clock
+  color: blue

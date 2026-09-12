@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	_ "time/tzdata" // Embed IANA timezone data for minimal hosts.
 
 	"github.com/Songmu/thresh"
 )
