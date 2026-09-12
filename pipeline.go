@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/Songmu/rssnip"
@@ -30,9 +31,13 @@ func (RSSnipFetcher) Fetch(
 	sourceURL string,
 	since, until time.Time,
 ) ([]FeedItem, error) {
+	normalizedSourceURL, err := normalizeSourceURLScheme(sourceURL)
+	if err != nil {
+		return nil, err
+	}
 	items, err := rssnip.Fetch(
 		ctx,
-		sourceURL,
+		normalizedSourceURL,
 		rssnip.WithSince(since),
 		rssnip.WithUntil(until),
 	)
@@ -44,6 +49,14 @@ func (RSSnipFetcher) Fetch(
 		feedItems[i] = FeedItem{URL: item.URL}
 	}
 	return feedItems, nil
+}
+
+func normalizeSourceURLScheme(sourceURL string) (string, error) {
+	if err := ValidateArticleURL(sourceURL); err != nil {
+		return "", err
+	}
+	schemeEnd := strings.IndexByte(sourceURL, ':')
+	return strings.ToLower(sourceURL[:schemeEnd]) + sourceURL[schemeEnd:], nil
 }
 
 // CollectedURL retains the feed that produced an article URL.

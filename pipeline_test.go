@@ -5,11 +5,74 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestRSSnipFetcherNormalizesOnlySourceURLScheme(t *testing.T) {
+	const feed = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Example</title>
+    <link>https://example.com/</link>
+    <description>Example feed</description>
+    <item>
+      <guid>item</guid>
+      <link>https://example.com/item</link>
+      <pubDate>Fri, 11 Sep 2026 00:00:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>`
+	const requestURI = "/Feed.XML?Token=AbC%2FDef"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.RequestURI != requestURI {
+			t.Errorf("request URI = %q, want %q", r.RequestURI, requestURI)
+		}
+		w.Header().Set("Content-Type", "application/rss+xml")
+		fmt.Fprint(w, feed)
+	}))
+	defer server.Close()
+
+	sourceURL := "HtTp" + strings.TrimPrefix(server.URL, "http") + requestURI
+	items, err := (RSSnipFetcher{}).Fetch(
+		context.Background(),
+		sourceURL,
+		time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC),
+		time.Date(2026, 9, 12, 0, 0, 0, 0, time.UTC),
+	)
+	if err != nil {
+		t.Fatalf("Fetch(%q) returned error: %v", sourceURL, err)
+	}
+	want := []FeedItem{{URL: "https://example.com/item"}}
+	if !reflect.DeepEqual(items, want) {
+		t.Fatalf("Fetch(%q) items = %#v, want %#v", sourceURL, items, want)
+	}
+}
+
+func TestRSSnipFetcherRejectsUnparseableSourceURLSafely(t *testing.T) {
+	sourceURL := "HTTPS://alice:swordfish@example.com/%zz"
+	_, err := (RSSnipFetcher{}).Fetch(
+		context.Background(),
+		sourceURL,
+		time.Time{},
+		time.Time{},
+	)
+	if err == nil {
+		t.Fatal("Fetch error = nil, want invalid URL error")
+	}
+	if got := err.Error(); !strings.Contains(got, `invalid url "HTTPS://example.com/%zz"`) {
+		t.Errorf("Fetch error = %q, want safe URL context", got)
+	}
+	for _, secret := range []string{"alice", "swordfish"} {
+		if strings.Contains(err.Error(), secret) {
+			t.Errorf("Fetch error %q contains credential %q", err, secret)
+		}
+	}
+}
 
 type fetchCall struct {
 	source string
