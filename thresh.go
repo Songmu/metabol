@@ -2,6 +2,7 @@ package thresh
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -48,14 +49,15 @@ func run(
 	if err != nil {
 		return err
 	}
-	window, err := SelectDailyWindow(
+	windows, err := SelectDailyWindows(
 		config.Location,
 		config.Daily,
 		now(),
 		config.At,
+		config.WindowCount,
 	)
 	if err != nil {
-		return fmt.Errorf("select processing window: %w", err)
+		return fmt.Errorf("select processing windows: %w", err)
 	}
 
 	sources := make([]string, len(config.Sources))
@@ -65,14 +67,28 @@ func run(
 	if pipeline == nil {
 		pipeline = NewPipeline(RSSnipFetcher{}, NewMDHQ(nil))
 	}
-	if err := pipeline.Run(ctx, PipelineRequest{
-		Sources: sources,
-		Since:   window.Start,
-		Until:   window.End,
-		Root:    config.Root,
-		Assets:  config.Assets,
-		Update:  config.Update,
-	}, outStream, errStream); err != nil {
+	var failures []error
+	for _, window := range windows {
+		if err := ctx.Err(); err != nil {
+			fmt.Fprintln(errStream, err)
+			failures = append(failures, err)
+			break
+		}
+		if err := pipeline.Run(ctx, PipelineRequest{
+			Sources: sources,
+			Since:   window.Start,
+			Until:   window.End,
+			Root:    config.Root,
+			Assets:  config.Assets,
+			Update:  config.Update,
+		}, outStream, errStream); err != nil {
+			failures = append(failures, err)
+			if ctx.Err() != nil {
+				break
+			}
+		}
+	}
+	if err := errors.Join(failures...); err != nil {
 		return &reportedError{err: err}
 	}
 	return nil

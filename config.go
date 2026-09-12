@@ -25,9 +25,10 @@ type Config struct {
 	Sources  []Source     `yaml:"sources"`
 }
 
-// WindowConfig describes the configured window boundary.
+// WindowConfig describes logical window selection.
 type WindowConfig struct {
 	Daily string `yaml:"daily"`
+	Count *int   `yaml:"count,omitempty"`
 }
 
 // Source describes an input feed.
@@ -211,14 +212,43 @@ func (v BoolValue) Get() (bool, bool) {
 	return v.value, v.set
 }
 
+// IntValue is an integer flag value that distinguishes unset from zero.
+type IntValue struct {
+	value int
+	set   bool
+}
+
+func (v *IntValue) Set(value string) error {
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return fmt.Errorf("invalid integer %q: %w", value, err)
+	}
+	v.value = parsed
+	v.set = true
+	return nil
+}
+
+func (v *IntValue) String() string {
+	if v == nil {
+		return "0"
+	}
+	return strconv.Itoa(v.value)
+}
+
+// Get returns the value and whether it was explicitly set.
+func (v IntValue) Get() (int, bool) {
+	return v.value, v.set
+}
+
 // CLIValues contains configuration-related command-line values.
 type CLIValues struct {
-	Config   StringValue
-	Root     StringValue
-	Assets   BoolValue
-	Update   BoolValue
-	Timezone StringValue
-	At       StringValue
+	Config      StringValue
+	Root        StringValue
+	Assets      BoolValue
+	Update      BoolValue
+	Timezone    StringValue
+	At          StringValue
+	WindowCount IntValue
 }
 
 // RegisterFlags registers configuration-related flags on fs.
@@ -229,6 +259,7 @@ func (v *CLIValues) RegisterFlags(fs *flag.FlagSet) {
 	fs.Var(&v.Update, "update", "update existing articles")
 	fs.Var(&v.Timezone, "timezone", "timezone used for window calculation")
 	fs.Var(&v.At, "at", "select the window containing this date or time")
+	fs.Var(&v.WindowCount, "window-count", "number of consecutive windows to process (1-366)")
 }
 
 // LookupEnvFunc matches os.LookupEnv and is injectable for deterministic tests.
@@ -274,14 +305,15 @@ func LoadConfig(path string) (*Config, error) {
 // ResolvedConfig contains values after applying CLI, environment, YAML, and
 // downstream/default fallbacks.
 type ResolvedConfig struct {
-	ConfigPath string
-	Root       string
-	Assets     bool
-	Update     bool
-	Location   *time.Location
-	Daily      DailyTime
-	At         *time.Time
-	Sources    []Source
+	ConfigPath  string
+	Root        string
+	Assets      bool
+	Update      bool
+	Location    *time.Location
+	Daily       DailyTime
+	WindowCount int
+	At          *time.Time
+	Sources     []Source
 }
 
 // LoadResolvedConfig selects, loads, and resolves the configuration.
@@ -344,6 +376,19 @@ func ResolveConfig(cli CLIValues, config *Config, lookupEnv LookupEnvFunc) (*Res
 	if err != nil {
 		return nil, fmt.Errorf("window.daily: %w", err)
 	}
+	windowCount, err := resolveInt(
+		cli.WindowCount,
+		"THRESH_WINDOW_COUNT",
+		config.Window.Count,
+		1,
+		lookupEnv,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateWindowCount(windowCount); err != nil {
+		return nil, err
+	}
 
 	var at *time.Time
 	atValue, atSet := resolveOptionalString(cli.At, "THRESH_AT", lookupEnv)
@@ -356,13 +401,14 @@ func ResolveConfig(cli CLIValues, config *Config, lookupEnv LookupEnvFunc) (*Res
 	}
 
 	return &ResolvedConfig{
-		Root:     root,
-		Assets:   assets,
-		Update:   update,
-		Location: location,
-		Daily:    daily,
-		At:       at,
-		Sources:  append([]Source(nil), config.Sources...),
+		Root:        root,
+		Assets:      assets,
+		Update:      update,
+		Location:    location,
+		Daily:       daily,
+		WindowCount: windowCount,
+		At:          at,
+		Sources:     append([]Source(nil), config.Sources...),
 	}, nil
 }
 
@@ -391,6 +437,23 @@ func resolveBool(cli BoolValue, envName string, yamlValue *bool, fallback bool, 
 		parsed, err := strconv.ParseBool(value)
 		if err != nil {
 			return false, fmt.Errorf("%s: invalid boolean %q: %w", envName, value, err)
+		}
+		return parsed, nil
+	}
+	if yamlValue != nil {
+		return *yamlValue, nil
+	}
+	return fallback, nil
+}
+
+func resolveInt(cli IntValue, envName string, yamlValue *int, fallback int, lookupEnv LookupEnvFunc) (int, error) {
+	if value, ok := cli.Get(); ok {
+		return value, nil
+	}
+	if value, ok := lookupEnv(envName); ok {
+		parsed, err := strconv.Atoi(value)
+		if err != nil {
+			return 0, fmt.Errorf("%s: invalid integer %q: %w", envName, value, err)
 		}
 		return parsed, nil
 	}

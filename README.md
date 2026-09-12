@@ -51,6 +51,7 @@ timezone: Asia/Tokyo
 
 window:
   daily: "07:00"
+  count: 1
 
 sources:
   - https://hnrss.org/newest
@@ -96,6 +97,7 @@ The supported flags and corresponding environment variables are:
 | `--update` | `THRESH_UPDATE` | Re-evaluate existing Markdown |
 | `--timezone` | `THRESH_TIMEZONE` | IANA timezone for window calculation |
 | `--at` | `THRESH_AT` | Select the logical window containing a timestamp |
+| `--window-count` | `THRESH_WINDOW_COUNT` | Process consecutive logical windows ending with the selected window |
 | `--version` | - | Print the installed `thresh` version |
 
 `root` additionally falls back to `MDHQ_ROOT` and is required after resolution.
@@ -129,6 +131,18 @@ RFC 3339 timestamps and `YYYY-MM-DD` dates are accepted. A date without a time
 means `00:00` in the configured timezone. A value exactly on a boundary belongs
 to the window beginning at that boundary. Backfills are best effort because a
 feed may no longer contain old items.
+
+`window.count`, `--window-count`, or `THRESH_WINDOW_COUNT` selects multiple
+consecutive windows. The default is `1`. The selected window is the newest;
+earlier windows are added by walking backward and all windows are processed
+from oldest to newest:
+
+```console
+$ thresh --at 2026-09-11 --window-count 3
+```
+
+This processes the window containing September 11 and the two windows
+immediately before it. The count must be between `1` and `366`.
 
 ## Output and errors
 
@@ -190,9 +204,10 @@ jobs:
 ```
 
 Inputs are `version`, `mdhq-version`, `config`, `root`, `assets`, `update`,
-`timezone`, and `at`. `version` defaults to an exact semantic-version action
-ref (including prerelease or build metadata), or to the latest release for a
-branch, commit SHA, or moving-major ref; `mdhq-version` defaults to `0.0.5`.
+`timezone`, `at`, and `window-count`. `version` defaults to an exact
+semantic-version action ref (including prerelease or build metadata), or to the
+latest release for a branch, commit SHA, or moving-major ref; `mdhq-version`
+defaults to `0.0.5`.
 Optional CLI inputs are omitted when empty, so configuration and
 environment-variable precedence remains intact. Explicit `false` values for
 `assets` and `update` are forwarded to the CLI.

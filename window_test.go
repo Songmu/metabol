@@ -60,6 +60,55 @@ func TestSelectDailyWindowAcceptsResolvedConfiguration(t *testing.T) {
 	assertWindow(t, got, "2026-09-10T07:00:00Z", "2026-09-11T07:00:00Z")
 }
 
+func TestDailyWindowSelectManyReturnsOldestFirst(t *testing.T) {
+	engine, err := NewDailyWindow(time.UTC, "07:00")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	windows, err := engine.SelectMany(
+		mustParseTime(t, "2026-09-12T19:00:00Z"),
+		nil,
+		3,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := len(windows), 3; got != want {
+		t.Fatalf("len(windows) = %d, want %d", got, want)
+	}
+	assertWindow(t, windows[0], "2026-09-09T07:00:00Z", "2026-09-10T07:00:00Z")
+	assertWindow(t, windows[1], "2026-09-10T07:00:00Z", "2026-09-11T07:00:00Z")
+	assertWindow(t, windows[2], "2026-09-11T07:00:00Z", "2026-09-12T07:00:00Z")
+}
+
+func TestDailyWindowSelectManyStartsWithContainingWindow(t *testing.T) {
+	engine, err := NewDailyWindow(time.UTC, "07:00")
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := mustParseTime(t, "2026-09-11T19:00:00Z")
+
+	windows, err := engine.SelectMany(time.Time{}, &at, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertWindow(t, windows[0], "2026-09-10T07:00:00Z", "2026-09-11T07:00:00Z")
+	assertWindow(t, windows[1], "2026-09-11T07:00:00Z", "2026-09-12T07:00:00Z")
+}
+
+func TestDailyWindowSelectManyRejectsInvalidCount(t *testing.T) {
+	engine, err := NewDailyWindow(time.UTC, "07:00")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, count := range []int{0, MaxWindowCount + 1} {
+		if _, err := engine.SelectMany(time.Now(), nil, count); err == nil {
+			t.Fatalf("SelectMany accepted count %d", count)
+		}
+	}
+}
+
 func TestDailyWindowContaining(t *testing.T) {
 	engine, err := NewDailyWindow(time.UTC, "07:00")
 	if err != nil {
