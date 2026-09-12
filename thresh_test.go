@@ -290,11 +290,12 @@ sources:
 
 	ctx, cancel := context.WithCancel(context.Background())
 	pipeline := &cancelingPipeline{cancel: cancel}
+	var stderr bytes.Buffer
 	err = run(
 		ctx,
 		[]string{"--config", configPath},
 		io.Discard,
-		io.Discard,
+		&stderr,
 		func() time.Time { return time.Date(2026, 9, 12, 19, 0, 0, 0, time.UTC) },
 		func(string) (string, bool) { return "", false },
 		pipeline,
@@ -304,6 +305,9 @@ sources:
 	}
 	if got, want := len(pipeline.requests), 1; got != want {
 		t.Fatalf("pipeline runs = %d, want %d", got, want)
+	}
+	if got, want := stderr.String(), context.Canceled.Error()+"\n"; got != want {
+		t.Fatalf("stderr = %q, want %q", got, want)
 	}
 }
 

@@ -70,6 +70,7 @@ func run(
 	var failures []error
 	for _, window := range windows {
 		if err := ctx.Err(); err != nil {
+			fmt.Fprintln(errStream, err)
 			failures = append(failures, err)
 			break
 		}
