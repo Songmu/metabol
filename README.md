@@ -132,17 +132,29 @@ feed may no longer contain old items.
 
 ## Output and errors
 
-`thresh` writes one compact JSON object per successfully processed article to
-stdout:
+### Manifest format
 
-```json
+`thresh` writes its manifest to stdout as JSON Lines (JSONL): one compact JSON
+object followed by a newline for each successfully processed article. The
+manifest uses the same camelCase field names and value semantics as the
+corresponding `mdhq` result fields, while omitting other `mdhq` fields.
+
+```jsonl
 {"requestedUrl":"https://example.com/a","sourceUrl":"https://example.com/a","path":"/data/mdhq/example.com/a.md","status":"saved"}
 {"requestedUrl":"https://example.com/b","sourceUrl":"https://example.com/b","path":"/data/mdhq/example.com/b.md","status":"skipped"}
 ```
 
-Each JSONL record contains `requestedUrl`, `sourceUrl`, `path`, and `status`.
-Supported statuses are `saved`, `updated`, `unchanged`, and `skipped`. Logs and
-diagnostics go to stderr, keeping stdout machine-readable.
+Every record contains these required, nonempty string fields:
+
+| Field | Description |
+| --- | --- |
+| `requestedUrl` | URL passed to `mdhq` for the article |
+| `sourceUrl` | Source URL reported by `mdhq`, which may differ after redirects or source resolution |
+| `path` | Path of the Markdown file managed by `mdhq` |
+| `status` | Processing result: `saved`, `updated`, `unchanged`, or `skipped` |
+
+No record is emitted for a failed article. Logs, warnings, and diagnostics go
+to stderr and are not part of the manifest, keeping stdout machine-readable.
 
 If an individual feed or article fails, `thresh` continues processing the
 remaining work, preserves successful records on stdout, and exits nonzero after
@@ -191,6 +203,10 @@ The action exposes:
 | --- | --- |
 | `manifest` | Absolute path to the captured JSONL manifest |
 | `count` | Number of nonempty lines in the manifest |
+
+The file referenced by `manifest` contains the CLI stdout format documented
+above; the output value is a path, not the JSONL content itself. `count`
+therefore normally equals the number of successfully emitted article records.
 
 The outputs are initialized before installation and updated after `thresh`
 runs. They therefore remain available with an empty manifest and count `0` if
