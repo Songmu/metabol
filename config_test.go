@@ -15,6 +15,10 @@ func boolPointer(value bool) *bool {
 	return &value
 }
 
+func intPointer(value int) *int {
+	return &value
+}
+
 func lookup(values map[string]string) LookupEnvFunc {
 	return func(key string) (string, bool) {
 		value, ok := values[key]
@@ -316,6 +320,7 @@ func TestCLIValuesRegisterFlags(t *testing.T) {
 		"--update",
 		"--timezone=Asia/Tokyo",
 		"--at=2026-09-11",
+		"--window-count=3",
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -331,6 +336,9 @@ func TestCLIValuesRegisterFlags(t *testing.T) {
 	}
 	if value, set := values.Update.Get(); !value || !set {
 		t.Fatalf("update = %v, %v", value, set)
+	}
+	if value, set := values.WindowCount.Get(); value != 3 || !set {
+		t.Fatalf("window count = %v, %v", value, set)
 	}
 }
 
@@ -398,6 +406,7 @@ func TestResolveConfigPrecedence(t *testing.T) {
 		wantAssets bool
 		wantUpdate bool
 		wantZone   string
+		wantCount  int
 	}{
 		{
 			name:       "yaml",
@@ -406,40 +415,59 @@ func TestResolveConfigPrecedence(t *testing.T) {
 			wantAssets: true,
 			wantUpdate: true,
 			wantZone:   "UTC",
+			wantCount:  1,
+		},
+		{
+			name: "yaml window count",
+			config: func() *Config {
+				config := validConfig()
+				config.Window.Count = intPointer(4)
+				return config
+			}(),
+			wantRoot:   "yaml-root",
+			wantAssets: true,
+			wantUpdate: true,
+			wantZone:   "UTC",
+			wantCount:  4,
 		},
 		{
 			name:   "environment over yaml",
 			config: validConfig(),
 			env: map[string]string{
-				"THRESH_ROOT":     "env-root",
-				"THRESH_ASSETS":   "false",
-				"THRESH_UPDATE":   "false",
-				"THRESH_TIMEZONE": "Asia/Tokyo",
+				"THRESH_ROOT":         "env-root",
+				"THRESH_ASSETS":       "false",
+				"THRESH_UPDATE":       "false",
+				"THRESH_TIMEZONE":     "Asia/Tokyo",
+				"THRESH_WINDOW_COUNT": "2",
 			},
 			wantRoot:   "env-root",
 			wantAssets: false,
 			wantUpdate: false,
 			wantZone:   "Asia/Tokyo",
+			wantCount:  2,
 		},
 		{
 			name:   "cli over environment",
 			config: validConfig(),
 			env: map[string]string{
-				"THRESH_ROOT":     "env-root",
-				"THRESH_ASSETS":   "true",
-				"THRESH_UPDATE":   "true",
-				"THRESH_TIMEZONE": "UTC",
+				"THRESH_ROOT":         "env-root",
+				"THRESH_ASSETS":       "true",
+				"THRESH_UPDATE":       "true",
+				"THRESH_TIMEZONE":     "UTC",
+				"THRESH_WINDOW_COUNT": "2",
 			},
 			setCLI: func(values *CLIValues) {
 				_ = values.Root.Set("cli-root")
 				_ = values.Assets.Set("false")
 				_ = values.Update.Set("false")
 				_ = values.Timezone.Set("Asia/Tokyo")
+				_ = values.WindowCount.Set("3")
 			},
 			wantRoot:   "cli-root",
 			wantAssets: false,
 			wantUpdate: false,
 			wantZone:   "Asia/Tokyo",
+			wantCount:  3,
 		},
 		{
 			name: "environment overrides invalid yaml timezone",
@@ -453,6 +481,23 @@ func TestResolveConfigPrecedence(t *testing.T) {
 			wantAssets: true,
 			wantUpdate: true,
 			wantZone:   "UTC",
+			wantCount:  1,
+		},
+		{
+			name: "cli overrides invalid yaml window count",
+			config: func() *Config {
+				config := validConfig()
+				config.Window.Count = intPointer(0)
+				return config
+			}(),
+			setCLI: func(values *CLIValues) {
+				_ = values.WindowCount.Set("2")
+			},
+			wantRoot:   "yaml-root",
+			wantAssets: true,
+			wantUpdate: true,
+			wantZone:   "UTC",
+			wantCount:  2,
 		},
 		{
 			name: "downstream and defaults",
@@ -469,6 +514,7 @@ func TestResolveConfigPrecedence(t *testing.T) {
 			wantAssets: false,
 			wantUpdate: false,
 			wantZone:   time.Local.String(),
+			wantCount:  1,
 		},
 	}
 	for _, tt := range tests {
@@ -487,6 +533,9 @@ func TestResolveConfigPrecedence(t *testing.T) {
 			}
 			if got.Location.String() != tt.wantZone {
 				t.Fatalf("location = %q, want %q", got.Location, tt.wantZone)
+			}
+			if got.WindowCount != tt.wantCount {
+				t.Fatalf("window count = %d, want %d", got.WindowCount, tt.wantCount)
 			}
 		})
 	}
@@ -521,6 +570,17 @@ func TestResolveConfigErrors(t *testing.T) {
 		},
 		{name: "invalid timezone environment", config: validConfig(), env: map[string]string{"THRESH_TIMEZONE": "Not/A_Zone"}, wantErr: "timezone"},
 		{name: "invalid at environment", config: validConfig(), env: map[string]string{"THRESH_AT": "last-week"}, wantErr: "must be RFC3339 or YYYY-MM-DD"},
+		{name: "invalid window count environment", config: validConfig(), env: map[string]string{"THRESH_WINDOW_COUNT": "many"}, wantErr: "THRESH_WINDOW_COUNT"},
+		{name: "zero window count environment", config: validConfig(), env: map[string]string{"THRESH_WINDOW_COUNT": "0"}, wantErr: "at least 1"},
+		{
+			name: "zero yaml window count",
+			config: func() *Config {
+				config := validConfig()
+				config.Window.Count = intPointer(0)
+				return config
+			}(),
+			wantErr: "at least 1",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

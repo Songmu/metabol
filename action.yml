@@ -1,5 +1,5 @@
 name: Run thresh
-description: Collect articles for a logical time window and save them as Markdown
+description: Collect articles for logical time windows and save them as Markdown
 author: Songmu
 inputs:
   version:
@@ -28,6 +28,9 @@ inputs:
   at:
     description: RFC 3339 timestamp or YYYY-MM-DD date selecting a logical window
     required: false
+  window-count:
+    description: Number of consecutive logical windows to process
+    required: false
 outputs:
   manifest:
     description: Absolute path to the JSONL manifest
@@ -51,6 +54,7 @@ runs:
         UPDATE_INPUT: ${{ inputs.update }}
         TIMEZONE_INPUT: ${{ inputs.timezone }}
         AT_INPUT: ${{ inputs.at }}
+        WINDOW_COUNT_INPUT: ${{ inputs.window-count }}
       run: |
         set -euo pipefail
 
@@ -95,6 +99,7 @@ runs:
         [[ -n "$UPDATE_INPUT" ]] && args+=(--update="$UPDATE_INPUT")
         [[ -n "$TIMEZONE_INPUT" ]] && args+=(--timezone "$TIMEZONE_INPUT")
         [[ -n "$AT_INPUT" ]] && args+=(--at "$AT_INPUT")
+        [[ -n "$WINDOW_COUNT_INPUT" ]] && args+=(--window-count "$WINDOW_COUNT_INPUT")
 
         set +e
         thresh "${args[@]}" | tee "$manifest"

@@ -16,7 +16,8 @@ import (
 )
 
 type recordingPipeline struct {
-	request PipelineRequest
+	request  PipelineRequest
+	requests []PipelineRequest
 }
 
 func (p *recordingPipeline) Run(
@@ -25,6 +26,7 @@ func (p *recordingPipeline) Run(
 	_, _ io.Writer,
 ) error {
 	p.request = request
+	p.requests = append(p.requests, request)
 	return nil
 }
 
@@ -168,6 +170,63 @@ sources:
 	}
 }
 
+func TestRunProcessesMultipleWindowsOldestFirst(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	err := os.WriteFile(configPath, []byte(`
+root: ./articles
+timezone: UTC
+window:
+  daily: "07:00"
+  count: 2
+sources:
+  - https://example.com/feed.xml
+`), 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pipeline := &recordingPipeline{}
+	err = run(
+		context.Background(),
+		[]string{"--config", configPath, "--at", "2026-09-11T19:00:00Z", "--window-count", "3"},
+		io.Discard,
+		io.Discard,
+		func() time.Time { return time.Time{} },
+		func(string) (string, bool) { return "", false },
+		pipeline,
+	)
+	if err != nil {
+		t.Fatalf("run returned error: %v", err)
+	}
+	if got, want := len(pipeline.requests), 3; got != want {
+		t.Fatalf("pipeline runs = %d, want %d", got, want)
+	}
+	assertPipelineWindow(t, pipeline.requests[0], "2026-09-09T07:00:00Z", "2026-09-10T07:00:00Z")
+	assertPipelineWindow(t, pipeline.requests[1], "2026-09-10T07:00:00Z", "2026-09-11T07:00:00Z")
+	assertPipelineWindow(t, pipeline.requests[2], "2026-09-11T07:00:00Z", "2026-09-12T07:00:00Z")
+}
+
+func assertPipelineWindow(t *testing.T, request PipelineRequest, wantSince, wantUntil string) {
+	t.Helper()
+	since, err := time.Parse(time.RFC3339, wantSince)
+	if err != nil {
+		t.Fatal(err)
+	}
+	until, err := time.Parse(time.RFC3339, wantUntil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !request.Since.Equal(since) || !request.Until.Equal(until) {
+		t.Fatalf(
+			"pipeline window = [%s, %s), want [%s, %s)",
+			request.Since,
+			request.Until,
+			since,
+			until,
+		)
+	}
+}
+
 type failingPipeline struct {
 	err error
 }
@@ -179,6 +238,58 @@ func (p *failingPipeline) Run(
 ) error {
 	fmt.Fprintln(errStream, p.err)
 	return p.err
+}
+
+type failFirstPipeline struct {
+	err      error
+	requests []PipelineRequest
+}
+
+func (p *failFirstPipeline) Run(
+	_ context.Context,
+	request PipelineRequest,
+	_, errStream io.Writer,
+) error {
+	p.requests = append(p.requests, request)
+	if len(p.requests) == 1 {
+		fmt.Fprintln(errStream, p.err)
+		return p.err
+	}
+	return nil
+}
+
+func TestRunContinuesAfterWindowFailure(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	err := os.WriteFile(configPath, []byte(`
+root: ./articles
+timezone: UTC
+window:
+  daily: "07:00"
+  count: 2
+sources:
+  - https://example.com/feed.xml
+`), 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	failure := errors.New("first window failed")
+	pipeline := &failFirstPipeline{err: failure}
+	err = run(
+		context.Background(),
+		[]string{"--config", configPath},
+		io.Discard,
+		io.Discard,
+		func() time.Time { return time.Date(2026, 9, 12, 19, 0, 0, 0, time.UTC) },
+		func(string) (string, bool) { return "", false },
+		pipeline,
+	)
+	if !errors.Is(err, failure) {
+		t.Fatalf("run error = %v, want wrapping %v", err, failure)
+	}
+	if got, want := len(pipeline.requests), 2; got != want {
+		t.Fatalf("pipeline runs = %d, want %d", got, want)
+	}
 }
 
 func TestRunDoesNotRepeatAlreadyReportedFailures(t *testing.T) {

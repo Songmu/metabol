@@ -73,6 +73,22 @@ func SelectDailyWindow(
 	return daily.Select(reference, at)
 }
 
+// SelectDailyWindows creates a selector from resolved configuration and
+// returns count consecutive windows in chronological order.
+func SelectDailyWindows(
+	location *time.Location,
+	boundary DailyTime,
+	reference time.Time,
+	at *time.Time,
+	count int,
+) ([]Window, error) {
+	daily, err := NewDailyWindowFromTime(location, boundary)
+	if err != nil {
+		return nil, err
+	}
+	return daily.SelectMany(reference, at, count)
+}
+
 // Select returns the window containing at when at is non-nil. Otherwise it
 // returns the last window whose end is not after reference.
 func (d *DailyWindow) Select(reference time.Time, at *time.Time) (Window, error) {
@@ -80,6 +96,31 @@ func (d *DailyWindow) Select(reference time.Time, at *time.Time) (Window, error)
 		return selectContainingWindow(d, *at)
 	}
 	return selectLastCompleteWindow(d, reference)
+}
+
+// SelectMany returns count consecutive windows ending with the selected
+// window, ordered from oldest to newest.
+func (d *DailyWindow) SelectMany(reference time.Time, at *time.Time, count int) ([]Window, error) {
+	if count < 1 {
+		return nil, errors.New("window count must be at least 1")
+	}
+	selected, err := d.Select(reference, at)
+	if err != nil {
+		return nil, err
+	}
+	windows := make([]Window, count)
+	windows[count-1] = selected
+	for i := count - 2; i >= 0; i-- {
+		start, err := d.previousBoundary(windows[i+1].Start, false)
+		if err != nil {
+			return nil, err
+		}
+		windows[i], err = newWindow(start, windows[i+1].Start)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return windows, nil
 }
 
 // LastComplete returns the last window whose end is not after reference.
