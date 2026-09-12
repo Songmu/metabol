@@ -54,7 +54,7 @@ GoのCLIとして実装する。Songmu/tagpr 同様に、カスタムGitHub Acti
 - rssnipはライブラリとして利用する
 - mdhqは外部コマンド実行する
 	- カスタムGitHub Actions提供するうえではsetup時にmdhqをインストールする必要がある
-	- mhdqのバージョン管理をどうするかは課題
+	- mdhqのバージョン管理をどうするかは課題
 
 ### 参考
 - [GitHub - Songmu/rssnip](https://github.com/Songmu/rssnip)

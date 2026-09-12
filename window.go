@@ -241,7 +241,7 @@ func resolveLocalTime(
 	var shifted time.Time
 	var shiftedWall time.Time
 	for _, offset := range offsets {
-		candidate := time.Unix(wall.Unix()-int64(offset), int64(nanosecond))
+		candidate := time.Unix(wall.Unix()-int64(offset), int64(nanosecond)).In(location)
 		local := candidate.In(location)
 		renderedWall := time.Date(
 			local.Year(),

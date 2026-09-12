@@ -159,14 +159,16 @@ func TestDailyWindowCollapsesDuplicateResolvedBoundaries(t *testing.T) {
 func TestParseWindowAt(t *testing.T) {
 	location := mustLoadLocation(t, "America/New_York")
 	tests := []struct {
-		name  string
-		value string
-		want  string
+		name         string
+		value        string
+		want         string
+		wantLocation *time.Location
 	}{
 		{
-			name:  "date only uses configured timezone",
-			value: "2026-03-08",
-			want:  "2026-03-08T05:00:00Z",
+			name:         "date only uses configured timezone",
+			value:        "2026-03-08",
+			want:         "2026-03-08T05:00:00Z",
+			wantLocation: location,
 		},
 		{
 			name:  "RFC3339 keeps the instant",
@@ -182,6 +184,9 @@ func TestParseWindowAt(t *testing.T) {
 			}
 			if want := mustParseTime(t, tt.want); !got.Equal(want) {
 				t.Fatalf("ParseWindowAt(%q) = %s, want %s", tt.value, got, want)
+			}
+			if tt.wantLocation != nil && got.Location() != tt.wantLocation {
+				t.Fatalf("ParseWindowAt(%q) location = %s, want %s", tt.value, got.Location(), tt.wantLocation)
 			}
 		})
 	}

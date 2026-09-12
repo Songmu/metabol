@@ -69,7 +69,11 @@ runs:
         action_ref="${ACTION_REF:-main}"
         thresh_version="$THRESH_VERSION_INPUT"
         if [[ -z "$thresh_version" ]]; then
-          if [[ "$action_ref" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
+          semver_core='(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)'
+          semver_identifier='(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)'
+          semver_prerelease="(-${semver_identifier}(\.${semver_identifier})*)?"
+          semver_build='(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?'
+          if [[ "$action_ref" =~ ^v${semver_core}${semver_prerelease}${semver_build}$ ]]; then
             thresh_version="$action_ref"
           else
             thresh_version="latest"
