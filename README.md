@@ -31,12 +31,12 @@ $ curl -sfL https://raw.githubusercontent.com/Songmu/thresh/main/install.sh |
 $ go install github.com/Songmu/thresh/cmd/thresh@latest
 ```
 
-**Prerequisite:** The supported, pinned `@songmu/mdhq` version, `0.0.4`,
+**Prerequisite:** The supported, pinned `@songmu/mdhq` version, `0.0.5`,
 requires Node.js 22 or later. `thresh` invokes `mdhq` as an external command,
 so install it separately and ensure it is on `PATH`:
 
 ```console
-$ npm install --global @songmu/mdhq@0.0.4
+$ npm install --global @songmu/mdhq@0.0.5
 ```
 
 ## Configuration
@@ -100,7 +100,9 @@ The supported flags and corresponding environment variables are:
 
 `root` additionally falls back to `MDHQ_ROOT` and is required after resolution.
 `assets` and `update` default to `false`; `timezone` defaults to the local
-timezone.
+timezone. After resolving `assets`, `thresh` explicitly passes either
+`--assets` or `--no-assets` to `mdhq`, so the resolved `thresh` setting
+overrides any value in mdhq configuration.
 
 ## Time windows
 
@@ -150,7 +152,7 @@ calculation errors fail before article processing.
 ## GitHub Action
 
 **Prerequisite:** The runner must provide Node.js 22 or later because the
-default pinned `@songmu/mdhq` version, `0.0.4`, requires it.
+default pinned `@songmu/mdhq` version, `0.0.5`, requires it.
 
 The repository includes a composite action that installs `thresh` and an
 isolated, pinned `@songmu/mdhq`, then captures stdout as a JSONL manifest:
@@ -178,7 +180,7 @@ jobs:
 Inputs are `version`, `mdhq-version`, `config`, `root`, `assets`, `update`,
 `timezone`, and `at`. `version` defaults to an exact semantic-version action
 ref (including prerelease or build metadata), or to the latest release for a
-branch, commit SHA, or moving-major ref; `mdhq-version` defaults to `0.0.4`.
+branch, commit SHA, or moving-major ref; `mdhq-version` defaults to `0.0.5`.
 Optional CLI inputs are omitted when empty, so configuration and
 environment-variable precedence remains intact. Explicit `false` values for
 `assets` and `update` are forwarded to the CLI.

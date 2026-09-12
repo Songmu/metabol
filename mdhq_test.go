@@ -3,8 +3,15 @@ package thresh
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -88,13 +95,168 @@ func TestMDHQGetBuildsFlagsAndDecodesResult(t *testing.T) {
 		{
 			name: "mdhq",
 			args: []string{
-				"get", "--json", "--root", "/root", "https://example.com/2",
+				"get", "--json", "--root", "/root",
+				"--assets", "https://example.com/2",
 			},
 		},
 	}
 	if !reflect.DeepEqual(runner.calls, wantCalls) {
 		t.Fatalf("runner calls = %#v, want %#v", runner.calls, wantCalls)
 	}
+}
+
+func TestMDHQGetAlwaysPassesResolvedAssetsFlag(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		assets     bool
+		wantFlag   string
+		unwantFlag string
+	}{
+		{
+			name:       "enabled",
+			assets:     true,
+			wantFlag:   "--assets",
+			unwantFlag: "--no-assets",
+		},
+		{
+			name:       "disabled",
+			assets:     false,
+			wantFlag:   "--no-assets",
+			unwantFlag: "--assets",
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			runner := &fakeCommandRunner{
+				responses: []fakeCommandResponse{{
+					stdout: []byte(`{"requestedUrl":"https://example.com/article","sourceUrl":"https://example.com/article","path":"/root/article.md","status":"saved"}` + "\n"),
+				}},
+			}
+			_, err := NewMDHQ(runner).Get(
+				context.Background(),
+				"https://example.com/article",
+				MDHQOptions{Root: "/root", Assets: tt.assets},
+			)
+			if err != nil {
+				t.Fatalf("MDHQ.Get error = %v", err)
+			}
+
+			var wantCount, unwantedCount int
+			for _, arg := range runner.calls[0].args {
+				switch arg {
+				case tt.wantFlag:
+					wantCount++
+				case tt.unwantFlag:
+					unwantedCount++
+				}
+			}
+			if wantCount != 1 || unwantedCount != 0 {
+				t.Fatalf(
+					"asset flags in %q = %d %s and %d %s, want exactly one %s",
+					runner.calls[0].args,
+					wantCount,
+					tt.wantFlag,
+					unwantedCount,
+					tt.unwantFlag,
+					tt.wantFlag,
+				)
+			}
+		})
+	}
+}
+
+func TestMDHQGetAssetsFlagOverridesDisabledMDHQConfig(t *testing.T) {
+	mdhqPath, err := exec.LookPath("mdhq")
+	if err != nil {
+		t.Skip("mdhq is not installed")
+	}
+	version, err := exec.Command(mdhqPath, "--version").Output()
+	if err != nil {
+		t.Fatalf("mdhq --version: %v", err)
+	}
+	if got := strings.TrimSpace(string(version)); got != "0.0.5" {
+		t.Skipf("mdhq version = %q, want 0.0.5", got)
+	}
+
+	configHome := t.TempDir()
+	configDir := filepath.Join(configHome, "mdhq")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("create mdhq config directory: %v", err)
+	}
+	if err := os.WriteFile(
+		filepath.Join(configDir, "config.json"),
+		[]byte("{\"assets\":false}\n"),
+		0o600,
+	); err != nil {
+		t.Fatalf("write mdhq config: %v", err)
+	}
+	t.Setenv("XDG_CONFIG_HOME", configHome)
+	t.Setenv("NO_PROXY", "127.0.0.1,localhost")
+	t.Setenv("no_proxy", "127.0.0.1,localhost")
+
+	var imageRequests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/article":
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			fmt.Fprintf(w, `<!doctype html>
+<html>
+<head>
+<title>Assets override fixture</title>
+<meta property="og:image" content="%s/image.png">
+</head>
+<body>
+<article>
+<h1>Assets override fixture</h1>
+<p>This local page verifies that the explicit positive assets flag overrides disabled mdhq configuration.</p>
+<img src="%s/image.png" alt="fixture">
+</article>
+</body>
+</html>`, serverURL(r), serverURL(r))
+		case "/image.png":
+			imageRequests.Add(1)
+			w.Header().Set("Content-Type", "image/png")
+			_, _ = w.Write([]byte("local image fixture"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	root := t.TempDir()
+	result, err := (&MDHQ{
+		Runner:  ExecCommandRunner{},
+		Command: mdhqPath,
+	}).Get(
+		context.Background(),
+		server.URL+"/article",
+		MDHQOptions{Root: root, Assets: true},
+	)
+	if err != nil {
+		t.Fatalf("MDHQ.Get error = %v", err)
+	}
+	if imageRequests.Load() == 0 {
+		t.Fatal("image requests = 0, want at least one")
+	}
+	assets, err := filepath.Glob(filepath.Join(root, "_assets", "*.png"))
+	if err != nil {
+		t.Fatalf("glob downloaded assets: %v", err)
+	}
+	if len(assets) == 0 {
+		t.Fatalf("downloaded assets = %v, want a PNG asset", assets)
+	}
+	if result.Status != "saved" {
+		t.Fatalf("MDHQ.Get status = %q, want saved", result.Status)
+	}
+}
+
+func serverURL(r *http.Request) string {
+	return "http://" + r.Host
 }
 
 func TestMDHQGetReportsCommandFailureWithSeparateStderr(t *testing.T) {

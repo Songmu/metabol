@@ -81,7 +81,9 @@ func (m *MDHQ) Get(
 		command = "mdhq"
 	}
 	args := []string{"get", "--json", "--root", options.Root}
-	if !options.Assets {
+	if options.Assets {
+		args = append(args, "--assets")
+	} else {
 		args = append(args, "--no-assets")
 	}
 	if options.Update {
