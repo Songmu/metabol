@@ -102,8 +102,10 @@ func TestDailyWindowSelectManyRejectsInvalidCount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := engine.SelectMany(time.Now(), nil, 0); err == nil {
-		t.Fatal("SelectMany accepted a zero count")
+	for _, count := range []int{0, MaxWindowCount + 1} {
+		if _, err := engine.SelectMany(time.Now(), nil, count); err == nil {
+			t.Fatalf("SelectMany accepted count %d", count)
+		}
 	}
 }
 

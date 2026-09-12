@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+// MaxWindowCount limits one run to at most one leap year's worth of daily windows.
+const MaxWindowCount = 366
+
 // Window is a half-open interval [Start, End).
 type Window struct {
 	Start time.Time
@@ -101,8 +104,8 @@ func (d *DailyWindow) Select(reference time.Time, at *time.Time) (Window, error)
 // SelectMany returns count consecutive windows ending with the selected
 // window, ordered from oldest to newest.
 func (d *DailyWindow) SelectMany(reference time.Time, at *time.Time, count int) ([]Window, error) {
-	if count < 1 {
-		return nil, errors.New("window count must be at least 1")
+	if err := validateWindowCount(count); err != nil {
+		return nil, err
 	}
 	selected, err := d.Select(reference, at)
 	if err != nil {
@@ -121,6 +124,13 @@ func (d *DailyWindow) SelectMany(reference time.Time, at *time.Time, count int) 
 		}
 	}
 	return windows, nil
+}
+
+func validateWindowCount(count int) error {
+	if count < 1 || count > MaxWindowCount {
+		return fmt.Errorf("window count must be between 1 and %d", MaxWindowCount)
+	}
+	return nil
 }
 
 // LastComplete returns the last window whose end is not after reference.

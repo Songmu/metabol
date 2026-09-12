@@ -571,7 +571,8 @@ func TestResolveConfigErrors(t *testing.T) {
 		{name: "invalid timezone environment", config: validConfig(), env: map[string]string{"THRESH_TIMEZONE": "Not/A_Zone"}, wantErr: "timezone"},
 		{name: "invalid at environment", config: validConfig(), env: map[string]string{"THRESH_AT": "last-week"}, wantErr: "must be RFC3339 or YYYY-MM-DD"},
 		{name: "invalid window count environment", config: validConfig(), env: map[string]string{"THRESH_WINDOW_COUNT": "many"}, wantErr: "THRESH_WINDOW_COUNT"},
-		{name: "zero window count environment", config: validConfig(), env: map[string]string{"THRESH_WINDOW_COUNT": "0"}, wantErr: "at least 1"},
+		{name: "zero window count environment", config: validConfig(), env: map[string]string{"THRESH_WINDOW_COUNT": "0"}, wantErr: "between 1 and 366"},
+		{name: "excessive window count environment", config: validConfig(), env: map[string]string{"THRESH_WINDOW_COUNT": "367"}, wantErr: "between 1 and 366"},
 		{
 			name: "zero yaml window count",
 			config: func() *Config {
@@ -579,7 +580,7 @@ func TestResolveConfigErrors(t *testing.T) {
 				config.Window.Count = intPointer(0)
 				return config
 			}(),
-			wantErr: "at least 1",
+			wantErr: "between 1 and 366",
 		},
 	}
 	for _, tt := range tests {

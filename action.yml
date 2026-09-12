@@ -29,7 +29,7 @@ inputs:
     description: RFC 3339 timestamp or YYYY-MM-DD date selecting a logical window
     required: false
   window-count:
-    description: Number of consecutive logical windows to process
+    description: Number of consecutive logical windows to process (1-366)
     required: false
 outputs:
   manifest:

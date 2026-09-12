@@ -259,7 +259,7 @@ func (v *CLIValues) RegisterFlags(fs *flag.FlagSet) {
 	fs.Var(&v.Update, "update", "update existing articles")
 	fs.Var(&v.Timezone, "timezone", "timezone used for window calculation")
 	fs.Var(&v.At, "at", "select the window containing this date or time")
-	fs.Var(&v.WindowCount, "window-count", "number of consecutive windows to process")
+	fs.Var(&v.WindowCount, "window-count", "number of consecutive windows to process (1-366)")
 }
 
 // LookupEnvFunc matches os.LookupEnv and is injectable for deterministic tests.
@@ -386,8 +386,8 @@ func ResolveConfig(cli CLIValues, config *Config, lookupEnv LookupEnvFunc) (*Res
 	if err != nil {
 		return nil, err
 	}
-	if windowCount < 1 {
-		return nil, errors.New("window count must be at least 1")
+	if err := validateWindowCount(windowCount); err != nil {
+		return nil, err
 	}
 
 	var at *time.Time

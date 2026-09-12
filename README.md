@@ -142,7 +142,7 @@ $ thresh --at 2026-09-11 --window-count 3
 ```
 
 This processes the window containing September 11 and the two windows
-immediately before it. The count must be at least `1`.
+immediately before it. The count must be between `1` and `366`.
 
 ## Output and errors
 
