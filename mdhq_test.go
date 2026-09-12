@@ -141,6 +141,7 @@ func TestMDHQGetRejectsUnknownStatus(t *testing.T) {
 func TestMDHQGetAcceptsNormalizedRequestedURL(t *testing.T) {
 	t.Parallel()
 
+	rawURL := "HTTPS://EXAMPLE.com:443/article#fragment"
 	runner := &fakeCommandRunner{
 		responses: []fakeCommandResponse{{
 			stdout: []byte(`{"requestedUrl":"https://example.com/article","sourceUrl":"https://example.com/article","path":"/root/article.md","status":"saved"}` + "\n"),
@@ -149,7 +150,7 @@ func TestMDHQGetAcceptsNormalizedRequestedURL(t *testing.T) {
 	}
 	got, err := NewMDHQ(runner).Get(
 		context.Background(),
-		"https://EXAMPLE.com:443/article#fragment",
+		rawURL,
 		MDHQOptions{Root: "/root"},
 	)
 	if err != nil {
@@ -160,6 +161,9 @@ func TestMDHQGetAcceptsNormalizedRequestedURL(t *testing.T) {
 	}
 	if got.Diagnostic != "warning from mdhq" {
 		t.Fatalf("diagnostic = %q", got.Diagnostic)
+	}
+	if got := runner.calls[0].args[len(runner.calls[0].args)-1]; got != rawURL {
+		t.Fatalf("mdhq URL argument = %q, want %q", got, rawURL)
 	}
 }
 

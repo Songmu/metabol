@@ -187,14 +187,21 @@ func (p *Pipeline) Run(
 		}
 		result, err := p.MDHQ.Get(ctx, article.URL, options)
 		if err != nil {
+			ctxErr := ctx.Err()
 			failure := fmt.Errorf(
 				"process URL %q from source %q: %w",
 				article.URL,
 				article.SourceURL,
 				err,
 			)
+			if ctxErr != nil && !errors.Is(failure, ctxErr) {
+				failure = fmt.Errorf("%w (%w)", failure, ctxErr)
+			}
 			failures = append(failures, failure)
 			fmt.Fprintln(stderr, failure)
+			if ctxErr != nil {
+				break
+			}
 			continue
 		}
 		if result.Diagnostic != "" {

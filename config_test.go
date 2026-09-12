@@ -72,8 +72,11 @@ func TestConfigValidate(t *testing.T) {
 		wantAbsent  []string
 	}{
 		{name: "valid", mutate: func(*Config) {}},
+		{name: "uppercase source scheme", mutate: func(c *Config) { c.Sources[0].URL = "HTTPS://example.com/feed" }},
+		{name: "mixed-case source scheme", mutate: func(c *Config) { c.Sources[0].URL = "HtTp://example.com/feed" }},
 		{name: "no sources", mutate: func(c *Config) { c.Sources = nil }, wantErr: "sources must not be empty"},
 		{name: "relative source", mutate: func(c *Config) { c.Sources[0].URL = "/feed" }, wantErr: "must use http or https"},
+		{name: "invalid source scheme", mutate: func(c *Config) { c.Sources[0].URL = "FTP://example.com/feed" }, wantErr: "must use http or https"},
 		{
 			name: "source userinfo",
 			mutate: func(c *Config) {
@@ -106,6 +109,42 @@ func TestConfigValidate(t *testing.T) {
 				if strings.Contains(err.Error(), value) {
 					t.Errorf("error %q contains credential %q", err, value)
 				}
+			}
+		})
+	}
+}
+
+func TestValidateArticleURLSchemes(t *testing.T) {
+	tests := []struct {
+		name    string
+		rawURL  string
+		wantErr string
+	}{
+		{name: "http", rawURL: "http://example.com/item"},
+		{name: "https", rawURL: "https://example.com/item"},
+		{name: "uppercase HTTP", rawURL: "HTTP://example.com/item"},
+		{name: "uppercase HTTPS", rawURL: "HTTPS://example.com/item"},
+		{name: "mixed-case HTTP", rawURL: "HtTp://example.com/item"},
+		{name: "mixed-case HTTPS", rawURL: "hTtPs://example.com/item"},
+		{name: "FTP", rawURL: "FTP://example.com/item", wantErr: "must use http or https"},
+		{name: "mailto", rawURL: "MaIlTo:person@example.com", wantErr: "must use http or https"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateArticleURL(tt.rawURL)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("ValidateArticleURL(%q) error = %v", tt.rawURL, err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf(
+					"ValidateArticleURL(%q) error = %v, want containing %q",
+					tt.rawURL,
+					err,
+					tt.wantErr,
+				)
 			}
 		})
 	}
@@ -168,6 +207,28 @@ func TestValidateArticleURLRedactsUserinfoFromEveryErrorPath(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestValidateArticleURLRedactsUserinfoWithUppercaseInvalidScheme(t *testing.T) {
+	username := "private-user"
+	password := "private-password"
+	err := ValidateArticleURL(
+		"FTP://" + username + ":" + password + "@example.com/item",
+	)
+	if err == nil {
+		t.Fatal("ValidateArticleURL error = nil")
+	}
+	message := err.Error()
+	for _, want := range []string{"must use http or https", "ftp://example.com/item"} {
+		if !strings.Contains(message, want) {
+			t.Errorf("error %q does not contain %q", message, want)
+		}
+	}
+	for _, credential := range []string{username, password} {
+		if strings.Contains(message, credential) {
+			t.Errorf("error %q contains credential %q", message, credential)
+		}
 	}
 }
 

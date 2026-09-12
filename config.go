@@ -88,7 +88,7 @@ func ValidateArticleURL(rawURL string) error {
 	if err != nil {
 		return fmt.Errorf("invalid url %q", safeURLDisplay(rawURL))
 	}
-	if u.Scheme != "http" && u.Scheme != "https" {
+	if !strings.EqualFold(u.Scheme, "http") && !strings.EqualFold(u.Scheme, "https") {
 		return fmt.Errorf("url %q must use http or https", safeURLDisplay(rawURL))
 	}
 	if u.Host == "" {

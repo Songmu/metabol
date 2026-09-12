@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -247,6 +248,7 @@ func TestCollectFeedsRejectsNonHTTPArticleURLs(t *testing.T) {
 	response := fetcher.responses["feed-a"]
 	response.items[3].URL = "https://" + credentialUsername + ":" +
 		credentialPassword + "@example.com/secret"
+	response.items = append(response.items, FeedItem{URL: "HTTPS://example.com/uppercase"})
 	fetcher.responses["feed-a"] = response
 
 	got, err := CollectFeeds(
@@ -256,7 +258,10 @@ func TestCollectFeedsRejectsNonHTTPArticleURLs(t *testing.T) {
 		time.Time{},
 		time.Time{},
 	)
-	want := []CollectedURL{{URL: "https://example.com/ok", SourceURL: "feed-a"}}
+	want := []CollectedURL{
+		{URL: "https://example.com/ok", SourceURL: "feed-a"},
+		{URL: "HTTPS://example.com/uppercase", SourceURL: "feed-a"},
+	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("CollectFeeds URLs = %#v, want %#v", got, want)
 	}
@@ -367,6 +372,80 @@ func TestPipelineRunReportsCancellationBetweenArticlesOnce(t *testing.T) {
 	}
 	if got, want := len(mdhq.calls), 1; got != want {
 		t.Fatalf("mdhq calls = %d, want %d", got, want)
+	}
+}
+
+func TestPipelineRunPreservesMDHQFailureOnCancellation(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		items      []FeedItem
+		processErr error
+	}{
+		{
+			name:       "final URL",
+			items:      []FeedItem{{URL: "https://example.com/1"}},
+			processErr: errors.New("mdhq process killed"),
+		},
+		{
+			name: "remaining URLs",
+			items: []FeedItem{
+				{URL: "https://example.com/1"},
+				{URL: "https://example.com/2"},
+				{URL: "https://example.com/3"},
+			},
+			processErr: errors.New("mdhq process killed"),
+		},
+		{
+			name:       "process error already wraps cancellation",
+			items:      []FeedItem{{URL: "https://example.com/1"}},
+			processErr: fmt.Errorf("mdhq process killed: %w", context.Canceled),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctx, cancel := context.WithCancel(context.Background())
+			fetcher := &fakeFeedFetcher{
+				responses: map[string]fakeFeedResponse{
+					"feed-a": {items: tt.items},
+				},
+			}
+			mdhq := &fakeMDHQ{
+				responses: map[string]fakeMDHQResponse{
+					"https://example.com/1": {err: tt.processErr},
+				},
+				afterGet: cancel,
+			}
+			var stdout, stderr bytes.Buffer
+			err := NewPipeline(fetcher, mdhq).Run(
+				ctx,
+				PipelineRequest{Sources: []string{"feed-a"}},
+				&stdout,
+				&stderr,
+			)
+
+			if !errors.Is(err, context.Canceled) {
+				t.Fatalf("Pipeline.Run error = %v, want context.Canceled", err)
+			}
+			if !errors.Is(err, tt.processErr) {
+				t.Fatalf("Pipeline.Run error = %v, want process error %v", err, tt.processErr)
+			}
+			if !strings.Contains(err.Error(), "mdhq process killed") {
+				t.Fatalf("Pipeline.Run error = %v, want process failure", err)
+			}
+			if got, want := strings.Count(stderr.String(), "context canceled"), 1; got != want {
+				t.Fatalf("stderr = %q, cancellation count = %d, want %d", stderr.String(), got, want)
+			}
+			if got, want := strings.Count(stderr.String(), "mdhq process killed"), 1; got != want {
+				t.Fatalf("stderr = %q, process failure count = %d, want %d", stderr.String(), got, want)
+			}
+			if got, want := len(mdhq.calls), 1; got != want {
+				t.Fatalf("mdhq calls = %d, want %d", got, want)
+			}
+		})
 	}
 }
 
