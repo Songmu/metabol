@@ -150,6 +150,47 @@ func TestValidateArticleURLSchemes(t *testing.T) {
 	}
 }
 
+func TestValidateArticleURLAuthorities(t *testing.T) {
+	tests := []struct {
+		name    string
+		rawURL  string
+		wantErr string
+	}{
+		{name: "DNS name", rawURL: "http://example.com/feed"},
+		{name: "DNS name with port", rawURL: "https://example.com:8443/feed"},
+		{name: "IPv4", rawURL: "http://192.0.2.1/feed"},
+		{name: "IPv4 with port", rawURL: "http://192.0.2.1:8080/feed"},
+		{name: "bracketed IPv6", rawURL: "http://[2001:db8::1]/feed"},
+		{name: "bracketed IPv6 with port", rawURL: "https://[2001:db8::1]:8443/feed"},
+		{name: "mixed-case HTTP with host and port", rawURL: "HtTp://EXAMPLE.com:8080/feed"},
+		{name: "mixed-case HTTPS with IPv6 and port", rawURL: "hTtPs://[2001:db8::1]:8443/feed"},
+		{name: "port-only authority", rawURL: "http://:80/feed", wantErr: "must include a hostname"},
+		{name: "empty bracketed IPv6", rawURL: "http://[]:80/feed", wantErr: "invalid url"},
+		{name: "unclosed bracketed IPv6", rawURL: "http://[2001:db8::1/feed", wantErr: "invalid url"},
+		{name: "unbracketed IPv6", rawURL: "http://2001:db8::1/feed", wantErr: "invalid url"},
+		{name: "invalid port", rawURL: "http://example.com:http/feed", wantErr: "invalid url"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateArticleURL(tt.rawURL)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("ValidateArticleURL(%q) error = %v", tt.rawURL, err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf(
+					"ValidateArticleURL(%q) error = %v, want containing %q",
+					tt.rawURL,
+					err,
+					tt.wantErr,
+				)
+			}
+		})
+	}
+}
+
 func TestValidateArticleURLRedactsUserinfoFromEveryErrorPath(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -176,10 +217,16 @@ func TestValidateArticleURLRedactsUserinfoFromEveryErrorPath(t *testing.T) {
 			wantContext: "ftp://example.com/feed",
 		},
 		{
-			name:        "absolute",
+			name:        "hostname",
 			rawURL:      "https://alice:swordfish@/feed",
-			wantError:   "must be absolute",
+			wantError:   "must include a hostname",
 			wantContext: "https:///feed",
+		},
+		{
+			name:        "port-only hostname",
+			rawURL:      "https://" + "alice:swordfish" + "@:80/feed",
+			wantError:   "must include a hostname",
+			wantContext: "https://:80/feed",
 		},
 		{
 			name:        "userinfo",

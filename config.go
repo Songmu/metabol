@@ -91,8 +91,8 @@ func ValidateArticleURL(rawURL string) error {
 	if !strings.EqualFold(u.Scheme, "http") && !strings.EqualFold(u.Scheme, "https") {
 		return fmt.Errorf("url %q must use http or https", safeURLDisplay(rawURL))
 	}
-	if u.Host == "" {
-		return fmt.Errorf("url %q must be absolute", safeURLDisplay(rawURL))
+	if u.Hostname() == "" {
+		return fmt.Errorf("url %q must include a hostname", safeURLDisplay(rawURL))
 	}
 	if u.User != nil {
 		return fmt.Errorf("url %q must not contain userinfo", safeURLDisplay(rawURL))

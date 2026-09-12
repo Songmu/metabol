@@ -329,6 +329,105 @@ func TestCollectFeedsStopsWhenContextIsCanceled(t *testing.T) {
 	}
 }
 
+func TestCollectFeedsPreservesFetchFailureOnCancellation(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		ctxErr   error
+		fetchErr error
+	}{
+		{
+			name:     "canceled",
+			ctxErr:   context.Canceled,
+			fetchErr: errors.New("feed transport failed"),
+		},
+		{
+			name:     "deadline exceeded",
+			ctxErr:   context.DeadlineExceeded,
+			fetchErr: errors.New("feed process killed"),
+		},
+		{
+			name:     "fetch error already wraps cancellation",
+			ctxErr:   context.Canceled,
+			fetchErr: fmt.Errorf("feed transport failed: %w", context.Canceled),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := &mutableErrorContext{Context: context.Background()}
+			fetcher := feedFetcherFunc(func(
+				_ context.Context,
+				source string,
+				_, _ time.Time,
+			) ([]FeedItem, error) {
+				if source == "feed-a" {
+					return []FeedItem{{URL: "https://example.com/1"}}, nil
+				}
+				ctx.err = tt.ctxErr
+				return nil, tt.fetchErr
+			})
+
+			got, err := CollectFeeds(
+				ctx,
+				fetcher,
+				[]string{"feed-a", "feed-b", "feed-c"},
+				time.Time{},
+				time.Time{},
+			)
+
+			if !errors.Is(err, tt.ctxErr) {
+				t.Fatalf("CollectFeeds error = %v, want %v", err, tt.ctxErr)
+			}
+			if !errors.Is(err, tt.fetchErr) {
+				t.Fatalf("CollectFeeds error = %v, want fetch error %v", err, tt.fetchErr)
+			}
+			if got, want := strings.Count(err.Error(), tt.ctxErr.Error()), 1; got != want {
+				t.Fatalf("CollectFeeds error = %q, context count = %d, want %d", err, got, want)
+			}
+			want := []CollectedURL{{URL: "https://example.com/1", SourceURL: "feed-a"}}
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("CollectFeeds URLs = %#v, want %#v", got, want)
+			}
+		})
+	}
+}
+
+func TestCollectFeedsFetchFailurePreservesCancellationWithoutURLs(t *testing.T) {
+	t.Parallel()
+
+	ctx := &mutableErrorContext{Context: context.Background()}
+	fetchErr := errors.New("feed transport failed")
+	fetcher := feedFetcherFunc(func(
+		_ context.Context,
+		_ string,
+		_, _ time.Time,
+	) ([]FeedItem, error) {
+		ctx.err = context.Canceled
+		return nil, fetchErr
+	})
+
+	got, err := CollectFeeds(
+		ctx,
+		fetcher,
+		[]string{"feed-a"},
+		time.Time{},
+		time.Time{},
+	)
+
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("CollectFeeds error = %v, want context.Canceled", err)
+	}
+	if !errors.Is(err, fetchErr) {
+		t.Fatalf("CollectFeeds error = %v, want fetch error %v", err, fetchErr)
+	}
+	if got != nil {
+		t.Fatalf("CollectFeeds URLs = %#v, want nil", got)
+	}
+}
+
 func TestPipelineRunReportsCancellationBetweenArticlesOnce(t *testing.T) {
 	t.Parallel()
 
@@ -372,6 +471,48 @@ func TestPipelineRunReportsCancellationBetweenArticlesOnce(t *testing.T) {
 	}
 	if got, want := len(mdhq.calls), 1; got != want {
 		t.Fatalf("mdhq calls = %d, want %d", got, want)
+	}
+}
+
+func TestPipelineRunReportsFetchFailureAndCancellationOnce(t *testing.T) {
+	t.Parallel()
+
+	ctx := &mutableErrorContext{Context: context.Background()}
+	fetchErr := errors.New("feed transport failed")
+	fetcher := feedFetcherFunc(func(
+		_ context.Context,
+		source string,
+		_, _ time.Time,
+	) ([]FeedItem, error) {
+		if source == "feed-a" {
+			return []FeedItem{{URL: "https://example.com/1"}}, nil
+		}
+		ctx.err = context.Canceled
+		return nil, fetchErr
+	})
+	mdhq := &fakeMDHQ{responses: map[string]fakeMDHQResponse{}}
+	var stdout, stderr bytes.Buffer
+	err := NewPipeline(fetcher, mdhq).Run(
+		ctx,
+		PipelineRequest{Sources: []string{"feed-a", "feed-b", "feed-c"}},
+		&stdout,
+		&stderr,
+	)
+
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("Pipeline.Run error = %v, want context.Canceled", err)
+	}
+	if !errors.Is(err, fetchErr) {
+		t.Fatalf("Pipeline.Run error = %v, want fetch error %v", err, fetchErr)
+	}
+	if got, want := strings.Count(stderr.String(), context.Canceled.Error()), 1; got != want {
+		t.Fatalf("stderr = %q, cancellation count = %d, want %d", stderr.String(), got, want)
+	}
+	if got, want := strings.Count(stderr.String(), fetchErr.Error()), 1; got != want {
+		t.Fatalf("stderr = %q, fetch failure count = %d, want %d", stderr.String(), got, want)
+	}
+	if len(mdhq.calls) != 0 {
+		t.Fatalf("mdhq calls = %#v, want none", mdhq.calls)
 	}
 }
 
@@ -491,6 +632,15 @@ type feedFetcherFunc func(
 	time.Time,
 	time.Time,
 ) ([]FeedItem, error)
+
+type mutableErrorContext struct {
+	context.Context
+	err error
+}
+
+func (c *mutableErrorContext) Err() error {
+	return c.err
+}
 
 func (f feedFetcherFunc) Fetch(
 	ctx context.Context,

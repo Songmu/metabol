@@ -81,8 +81,13 @@ func CollectFeeds(
 		}
 		items, err := fetcher.Fetch(ctx, sourceURL, since, until)
 		if err != nil {
-			failures = append(failures, fmt.Errorf("fetch source %q: %w", sourceURL, err))
-			if ctx.Err() != nil {
+			ctxErr := ctx.Err()
+			failure := fmt.Errorf("fetch source %q: %w", sourceURL, err)
+			if ctxErr != nil && !errors.Is(failure, ctxErr) {
+				failure = fmt.Errorf("%w (%w)", failure, ctxErr)
+			}
+			failures = append(failures, failure)
+			if ctxErr != nil {
 				break
 			}
 			continue
