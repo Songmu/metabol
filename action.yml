@@ -5,6 +5,7 @@ inputs:
   version:
     description: Version of thresh to install; defaults to an exact version action ref or latest
     required: false
+    default: "v0.0.0"
   mdhq-version:
     description: Version of @songmu/mdhq to install; default 0.0.5 requires Node.js 22 or later
     required: false
