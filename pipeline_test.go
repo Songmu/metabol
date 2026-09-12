@@ -116,6 +116,17 @@ type fakeMDHQ struct {
 	afterGet  func()
 }
 
+type partialErrorWriter struct {
+	buffer bytes.Buffer
+	err    error
+}
+
+func (w *partialErrorWriter) Write(p []byte) (int, error) {
+	n := min(8, len(p))
+	_, _ = w.buffer.Write(p[:n])
+	return n, w.err
+}
+
 func (m *fakeMDHQ) Get(
 	_ context.Context,
 	url string,
@@ -199,6 +210,7 @@ func TestPipelineRunPreservesOrderAndAggregatesPartialFailures(t *testing.T) {
 			},
 		},
 	}
+
 	mdhq := &fakeMDHQ{
 		responses: map[string]fakeMDHQResponse{
 			"https://example.com/1": {
@@ -286,6 +298,63 @@ func TestPipelineRunPreservesOrderAndAggregatesPartialFailures(t *testing.T) {
 	}
 	if !reflect.DeepEqual(mdhq.calls, wantCalls) {
 		t.Fatalf("mdhq calls = %#v, want %#v", mdhq.calls, wantCalls)
+	}
+}
+
+func TestPipelineRunStopsAfterOutputFailure(t *testing.T) {
+	t.Parallel()
+
+	fetcher := &fakeFeedFetcher{
+		responses: map[string]fakeFeedResponse{
+			"feed-a": {
+				items: []FeedItem{
+					{URL: "https://example.com/1"},
+					{URL: "https://example.com/2"},
+				},
+			},
+		},
+	}
+	mdhq := &fakeMDHQ{
+		responses: map[string]fakeMDHQResponse{
+			"https://example.com/1": {
+				result: MDHQResult{
+					RequestedURL: "https://example.com/1",
+					SourceURL:    "https://example.com/1",
+					Path:         "/root/1.md",
+					Status:       "saved",
+				},
+			},
+			"https://example.com/2": {
+				result: MDHQResult{
+					RequestedURL: "https://example.com/2",
+					SourceURL:    "https://example.com/2",
+					Path:         "/root/2.md",
+					Status:       "saved",
+				},
+			},
+		},
+	}
+	writeErr := errors.New("disk full")
+	stdout := &partialErrorWriter{err: writeErr}
+	var stderr bytes.Buffer
+	err := NewPipeline(fetcher, mdhq).Run(
+		context.Background(),
+		PipelineRequest{Sources: []string{"feed-a"}, Root: "/root"},
+		stdout,
+		&stderr,
+	)
+
+	if !errors.Is(err, writeErr) {
+		t.Fatalf("Pipeline.Run error = %v, want %v", err, writeErr)
+	}
+	if got, want := len(mdhq.calls), 1; got != want {
+		t.Fatalf("mdhq calls = %d, want %d", got, want)
+	}
+	if got := stdout.buffer.String(); got == "" || strings.Contains(got, "https://example.com/2") {
+		t.Fatalf("stdout = %q, want only a partial first record", got)
+	}
+	if got := stderr.String(); !strings.Contains(got, `write result for URL "https://example.com/1"`) {
+		t.Fatalf("stderr = %q, want writer failure", got)
 	}
 }
 

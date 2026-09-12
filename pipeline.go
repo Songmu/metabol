@@ -234,6 +234,7 @@ func (p *Pipeline) Run(
 			)
 			failures = append(failures, failure)
 			fmt.Fprintln(stderr, failure)
+			break
 		}
 	}
 	return errors.Join(failures...)
