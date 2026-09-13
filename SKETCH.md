@@ -180,10 +180,12 @@ sources:
 --root
     > THRESH_ROOT
     > thresh.yaml の root
-    > MDHQ_ROOT
+    > 設定ファイルの配置ディレクトリ
 ```
 
-解決した値は `mdhq` の `--root` に明示的に渡す。いずれにも `root` が設定されていない場合は、`rssnip` や `mdhq` を実行する前にエラーとする。
+解決した値は `mdhq` の `--root` に明示的に渡す。
+設定ファイル内の相対 `root` は設定ファイルの配置ディレクトリから解決する。
+`--root` と `THRESH_ROOT` の相対パスは実行時のカレントディレクトリから解決する。
 
 ### `assets`
 

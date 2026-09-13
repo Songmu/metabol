@@ -499,23 +499,6 @@ func TestResolveConfigPrecedence(t *testing.T) {
 			wantZone:   "UTC",
 			wantCount:  2,
 		},
-		{
-			name: "downstream and defaults",
-			config: func() *Config {
-				config := validConfig()
-				config.Root = ""
-				config.Assets = nil
-				config.Update = nil
-				config.Timezone = ""
-				return config
-			}(),
-			env:        map[string]string{"MDHQ_ROOT": "mdhq-root"},
-			wantRoot:   "mdhq-root",
-			wantAssets: false,
-			wantUpdate: false,
-			wantZone:   time.Local.String(),
-			wantCount:  1,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -549,12 +532,13 @@ func TestResolveConfigErrors(t *testing.T) {
 		wantErr string
 	}{
 		{
-			name: "missing root",
+			name: "missing root ignores MDHQ_ROOT",
 			config: func() *Config {
 				config := validConfig()
 				config.Root = ""
 				return config
 			}(),
+			env:     map[string]string{"MDHQ_ROOT": "mdhq-root"},
 			wantErr: "root is required",
 		},
 		{name: "invalid assets environment", config: validConfig(), env: map[string]string{"THRESH_ASSETS": "sometimes"}, wantErr: "THRESH_ASSETS"},
@@ -588,6 +572,69 @@ func TestResolveConfigErrors(t *testing.T) {
 			_, err := ResolveConfig(CLIValues{}, tt.config, lookup(tt.env))
 			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 				t.Fatalf("got error %v, want containing %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestLoadResolvedConfigDefaultsRootToConfigDirectory(t *testing.T) {
+	dir := t.TempDir()
+	configDir := filepath.Join(dir, "config")
+	if err := os.Mkdir(configDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(configDir, "thresh.yaml")
+	tests := []struct {
+		name     string
+		root     string
+		env      map[string]string
+		cliRoot  string
+		wantRoot string
+	}{
+		{
+			name:     "config directory ignores MDHQ_ROOT",
+			env:      map[string]string{"MDHQ_ROOT": "mdhq-root"},
+			wantRoot: configDir,
+		},
+		{name: "relative yaml", root: "yaml-root", wantRoot: filepath.Join(configDir, "yaml-root")},
+		{
+			name:     "environment over yaml",
+			root:     "yaml-root",
+			env:      map[string]string{"THRESH_ROOT": "env-root"},
+			wantRoot: "env-root",
+		},
+		{
+			name:     "cli over yaml",
+			root:     "yaml-root",
+			cliRoot:  "cli-root",
+			wantRoot: "cli-root",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			configYAML := "window:\n  daily: \"07:00\"\nsources:\n  - https://example.com/feed\n"
+			if tt.root != "" {
+				configYAML = "root: " + tt.root + "\n" + configYAML
+			}
+			if err := os.WriteFile(path, []byte(configYAML), 0o600); err != nil {
+				t.Fatal(err)
+			}
+
+			var cli CLIValues
+			if err := cli.Config.Set(path); err != nil {
+				t.Fatal(err)
+			}
+			if tt.cliRoot != "" {
+				if err := cli.Root.Set(tt.cliRoot); err != nil {
+					t.Fatal(err)
+				}
+			}
+			resolved, err := LoadResolvedConfig(cli, lookup(tt.env))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if resolved.Root != tt.wantRoot {
+				t.Fatalf("root = %q, want %q", resolved.Root, tt.wantRoot)
 			}
 		})
 	}

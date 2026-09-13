@@ -125,7 +125,7 @@ sources:
 		t.Fatalf("assets/update = %v/%v, want true/true",
 			pipeline.request.Assets, pipeline.request.Update)
 	}
-	if got, want := pipeline.request.Root, "./articles"; got != want {
+	if got, want := pipeline.request.Root, filepath.Join(filepath.Dir(configPath), "articles"); got != want {
 		t.Fatalf("root = %q, want %q", got, want)
 	}
 }
