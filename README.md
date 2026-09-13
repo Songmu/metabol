@@ -62,8 +62,8 @@ $ metabol init
 If the directory is not empty, `metabol` asks for confirmation and defaults to
 not creating the file. It never overwrites an existing `metabol.yaml`.
 
-By default, `metabol` reads `metabol.yaml` from the current directory. The
-generated configuration is:
+By default, `metabol` reads `metabol.yaml` from the current directory. An
+example configuration is:
 
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Songmu/metabol/main/schema.yaml
