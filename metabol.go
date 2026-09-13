@@ -29,9 +29,19 @@ func run(
 	lookupEnv LookupEnvFunc,
 	pipeline pipelineRunner,
 ) error {
+	if len(argv) > 0 && argv[0] == "skills" {
+		return runSkills(ctx, argv[1:], outStream, errStream)
+	}
+
 	fs := flag.NewFlagSet(
 		fmt.Sprintf("%s (v%s rev:%s)", cmdName, version, revision), flag.ContinueOnError)
 	fs.SetOutput(errStream)
+	fs.Usage = func() {
+		fmt.Fprintf(fs.Output(), "Usage: %s [options]\n", cmdName)
+		fmt.Fprintf(fs.Output(), "\nManage the bundled Agent Skill with '%s skills <command>'.\n", cmdName)
+		fmt.Fprintln(fs.Output(), "Options:")
+		fs.PrintDefaults()
+	}
 	ver := fs.Bool("version", false, "display version")
 	var cli CLIValues
 	cli.RegisterFlags(fs)
