@@ -14,12 +14,27 @@ runs:
     uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
     with:
       go-version: stable
-  - name: release
+  - name: crossbuild
     run: |
-      make crossbuild upload
+      make crossbuild
     shell: bash
-    env:
-      GITHUB_TOKEN: ${{ inputs.token }}
+  - name: prepare release notes
+    id: release-notes
+    run: |
+      delimiter="ghr-$(date +%s%N)"
+      {
+        echo "body<<${delimiter}"
+        godzil changelog --latest -F markdown
+        echo "${delimiter}"
+      } >> "$GITHUB_OUTPUT"
+    shell: bash
+  - name: release
+    uses: tcnksm/ghr@766f869eacbbb086e8860cf0f0192dda6e8e67e1 # v0.18.3
+    with:
+      tag: ${{ inputs.tag || github.ref_name }}
+      path: dist/${{ inputs.tag || github.ref_name }}
+      body: ${{ steps.release-notes.outputs.body }}
+      token: ${{ inputs.token }}
   - uses: haya14busa/action-update-semver@7d2c558640ea49e798d46539536190aff8c18715 # v1.5.1
     with:
       github_token: ${{ inputs.token }}
