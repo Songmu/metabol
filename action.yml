@@ -7,9 +7,9 @@ inputs:
     required: false
     default: "v0.0.0"
   mdhq-version:
-    description: Version of @songmu/mdhq to install; default 0.0.5 requires Node.js 22 or later
+    description: Version of @songmu/mdhq to install; defaults to package-lock.json
     required: false
-    default: 0.0.5
+    default: ""
   config:
     description: Path to the thresh configuration file
     required: false
@@ -88,9 +88,15 @@ runs:
           "https://raw.githubusercontent.com/Songmu/thresh/${action_ref}/install.sh" |
           sh -s -- -b "$thresh_bin" "$thresh_version" 2>&1
 
-        npm install --global --prefix "$mdhq_prefix" \
-          "@songmu/mdhq@${MDHQ_VERSION_INPUT}"
-        export PATH="$thresh_bin:$mdhq_prefix/bin:$mdhq_prefix:$PATH"
+        if [[ -n "$MDHQ_VERSION_INPUT" ]]; then
+          npm install --prefix "$mdhq_prefix" --omit=dev \
+            "@songmu/mdhq@${MDHQ_VERSION_INPUT}"
+        else
+          cp "$GITHUB_ACTION_PATH/package.json" "$GITHUB_ACTION_PATH/package-lock.json" \
+            "$mdhq_prefix/"
+          npm ci --prefix "$mdhq_prefix" --omit=dev
+        fi
+        export PATH="$thresh_bin:$mdhq_prefix/node_modules/.bin:$PATH"
 
         args=()
         [[ -n "$CONFIG_INPUT" ]] && args+=(--config "$CONFIG_INPUT")

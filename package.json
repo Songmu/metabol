@@ -1,0 +1,7 @@
+{
+  "name": "thresh",
+  "private": true,
+  "dependencies": {
+    "@songmu/mdhq": "0.0.5"
+  }
+}

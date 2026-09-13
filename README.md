@@ -31,7 +31,8 @@ $ curl -sfL https://raw.githubusercontent.com/Songmu/thresh/main/install.sh |
 $ go install github.com/Songmu/thresh/cmd/thresh@latest
 ```
 
-**Prerequisite:** The supported, pinned `@songmu/mdhq` version, `0.0.5`,
+**Prerequisite:** The supported `@songmu/mdhq` version is managed in
+`package.json` and `package-lock.json`; the current locked version, `0.0.5`,
 requires Node.js 22 or later. `thresh` invokes `mdhq` as an external command,
 so install it separately and ensure it is on `PATH`:
 
@@ -179,10 +180,11 @@ calculation errors fail before article processing.
 ## GitHub Action
 
 **Prerequisite:** The runner must provide Node.js 22 or later because the
-default pinned `@songmu/mdhq` version, `0.0.5`, requires it.
+locked `@songmu/mdhq` version currently requires it.
 
 The repository includes a composite action that installs `thresh` and an
-isolated, pinned `@songmu/mdhq`, then captures stdout as a JSONL manifest:
+isolated, lockfile-pinned `@songmu/mdhq`, then captures stdout as a JSONL
+manifest:
 
 ```yaml
 jobs:
@@ -207,8 +209,9 @@ jobs:
 Inputs are `version`, `mdhq-version`, `config`, `root`, `assets`, `update`,
 `timezone`, `at`, and `window-count`. `version` defaults to an exact
 semantic-version action ref (including prerelease or build metadata), or to the
-latest release for a branch, commit SHA, or moving-major ref; `mdhq-version`
-defaults to `0.0.5`.
+latest release for a branch, commit SHA, or moving-major ref. `mdhq-version`
+defaults to the version locked in `package-lock.json`; set it only to override
+the bundled lockfile.
 Optional CLI inputs are omitted when empty, so configuration and
 environment-variable precedence remains intact. Explicit `false` values for
 `assets` and `update` are forwarded to the CLI.
