@@ -19,7 +19,14 @@ go install github.com/Songmu/metabol/cmd/metabol@latest
 npm install --global @songmu/mdhq
 ```
 
-Create `metabol.yaml` in the working directory:
+Create `metabol.yaml` in the working directory, then edit the generated source
+list for the feeds to collect:
+
+```bash
+metabol init
+```
+
+The generated configuration is:
 
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Songmu/metabol/main/schema.yaml

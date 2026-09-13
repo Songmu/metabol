@@ -84,12 +84,21 @@ directory until `metabol skills update` or `reinstall` is run.
 
 ## Configuration
 
-By default, `metabol` reads `metabol.yaml` from the current directory. A
-minimal recommended configuration is:
+Create a starter configuration in the current directory:
+
+```console
+$ metabol init
+```
+
+If the directory is not empty, `metabol` asks for confirmation and defaults to
+not creating the file. It never overwrites an existing `metabol.yaml`.
+
+By default, `metabol` reads `metabol.yaml` from the current directory. The
+generated configuration is:
 
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Songmu/metabol/main/schema.yaml
-timezone: Asia/Tokyo # Optional, but recommended
+timezone: Asia/Tokyo
 
 window:
   daily: "07:00"

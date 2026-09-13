@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Songmu/metabol/main/schema.yaml
+timezone: Asia/Tokyo
+
+window:
+  daily: "07:00"
+
+sources:
+  - https://example.com/feed.xml
