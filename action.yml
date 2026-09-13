@@ -7,7 +7,7 @@ inputs:
     required: false
     default: "v0.0.0"
   mdhq-version:
-    description: Optional @songmu/mdhq version override; leave empty to use the bundled package-lock.json version
+    description: Optional @songmu/mdhq version override; leave empty to use the bundled package-lock.json version (currently 0.0.5)
     required: false
     default: ""
   config:
@@ -91,8 +91,10 @@ runs:
         mkdir -p "$mdhq_prefix"
         cp "$GITHUB_ACTION_PATH/package.json" "$mdhq_prefix/"
         if [[ -n "$MDHQ_VERSION_INPUT" ]]; then
+          npm pkg set --prefix "$mdhq_prefix" \
+            "dependencies.@songmu/mdhq=${MDHQ_VERSION_INPUT}"
           npm install --prefix "$mdhq_prefix" --package-lock-only --ignore-scripts \
-            --omit=dev "@songmu/mdhq@${MDHQ_VERSION_INPUT}"
+            --omit=dev
         else
           cp "$GITHUB_ACTION_PATH/package-lock.json" "$mdhq_prefix/"
         fi
