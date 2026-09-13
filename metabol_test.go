@@ -58,7 +58,9 @@ func TestRunVersionDoesNotRequireConfig(t *testing.T) {
 	if result.err != nil {
 		t.Fatalf("run returned error: %v", result.err)
 	}
-	if got, want := result.stdout, "metabol v0.0.0 (rev:HEAD)\n"; got != want {
+	if got, want := result.stdout,
+		fmt.Sprintf("metabol v%s (rev:HEAD)\n", version); got != want {
+
 		t.Fatalf("stdout = %q, want %q", got, want)
 	}
 	if result.stderr != "" {
