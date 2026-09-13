@@ -55,7 +55,7 @@ runs:
         TIMEZONE_INPUT: ${{ inputs.timezone }}
         AT_INPUT: ${{ inputs.at }}
         WINDOW_COUNT_INPUT: ${{ inputs.window-count }}
-      run: $GITHUB_ACTION_PATH/action.sh
+      run: "$GITHUB_ACTION_PATH/action.sh"
 branding:
   icon: clock
   color: blue
