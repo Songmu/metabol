@@ -87,8 +87,7 @@ Values are resolved in this order:
 CLI flag
   > THRESH_* environment variable
   > thresh.yaml
-  > downstream-specific fallback
-  > default
+  > directory containing the configuration file (root only)
 ```
 
 The supported flags and corresponding environment variables are:
@@ -104,7 +103,8 @@ The supported flags and corresponding environment variables are:
 | `--window-count` | `THRESH_WINDOW_COUNT` | Process consecutive logical windows ending with the selected window |
 | `--version` | - | Print the installed `thresh` version |
 
-`root` additionally falls back to `MDHQ_ROOT` and is required after resolution.
+When `root` is not set by the CLI, `THRESH_ROOT`, or the configuration file,
+thresh uses the directory containing the selected configuration file.
 `assets` and `update` default to `false`; `timezone` defaults to the local
 timezone. After resolving `assets`, `thresh` explicitly passes either
 `--assets` or `--no-assets` to `mdhq`, so the resolved `thresh` setting

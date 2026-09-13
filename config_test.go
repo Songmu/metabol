@@ -499,23 +499,6 @@ func TestResolveConfigPrecedence(t *testing.T) {
 			wantZone:   "UTC",
 			wantCount:  2,
 		},
-		{
-			name: "downstream and defaults",
-			config: func() *Config {
-				config := validConfig()
-				config.Root = ""
-				config.Assets = nil
-				config.Update = nil
-				config.Timezone = ""
-				return config
-			}(),
-			env:        map[string]string{"MDHQ_ROOT": "mdhq-root"},
-			wantRoot:   "mdhq-root",
-			wantAssets: false,
-			wantUpdate: false,
-			wantZone:   time.Local.String(),
-			wantCount:  1,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -549,12 +532,13 @@ func TestResolveConfigErrors(t *testing.T) {
 		wantErr string
 	}{
 		{
-			name: "missing root",
+			name: "missing root ignores MDHQ_ROOT",
 			config: func() *Config {
 				config := validConfig()
 				config.Root = ""
 				return config
 			}(),
+			env:     map[string]string{"MDHQ_ROOT": "mdhq-root"},
 			wantErr: "root is required",
 		},
 		{name: "invalid assets environment", config: validConfig(), env: map[string]string{"THRESH_ASSETS": "sometimes"}, wantErr: "THRESH_ASSETS"},
@@ -590,6 +574,31 @@ func TestResolveConfigErrors(t *testing.T) {
 				t.Fatalf("got error %v, want containing %q", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestLoadResolvedConfigDefaultsRootToConfigDirectory(t *testing.T) {
+	dir := t.TempDir()
+	configDir := filepath.Join(dir, "config")
+	if err := os.Mkdir(configDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(configDir, "thresh.yaml")
+	configYAML := "window:\n  daily: \"07:00\"\nsources:\n  - https://example.com/feed\n"
+	if err := os.WriteFile(path, []byte(configYAML), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var cli CLIValues
+	if err := cli.Config.Set(path); err != nil {
+		t.Fatal(err)
+	}
+	resolved, err := LoadResolvedConfig(cli, lookup(map[string]string{"MDHQ_ROOT": "mdhq-root"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved.Root != configDir {
+		t.Fatalf("root = %q, want %q", resolved.Root, configDir)
 	}
 }
 

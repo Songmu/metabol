@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -326,7 +327,7 @@ func LoadResolvedConfig(cli CLIValues, lookupEnv LookupEnvFunc) (*ResolvedConfig
 	if err != nil {
 		return nil, err
 	}
-	resolved, err := ResolveConfig(cli, config, lookupEnv)
+	resolved, err := resolveConfig(cli, config, lookupEnv, filepath.Dir(path))
 	if err != nil {
 		return nil, err
 	}
@@ -336,6 +337,10 @@ func LoadResolvedConfig(cli CLIValues, lookupEnv LookupEnvFunc) (*ResolvedConfig
 
 // ResolveConfig applies CLI > THRESH_* > YAML > downstream/default fallbacks.
 func ResolveConfig(cli CLIValues, config *Config, lookupEnv LookupEnvFunc) (*ResolvedConfig, error) {
+	return resolveConfig(cli, config, lookupEnv, "")
+}
+
+func resolveConfig(cli CLIValues, config *Config, lookupEnv LookupEnvFunc, rootFallback string) (*ResolvedConfig, error) {
 	if config == nil {
 		return nil, errors.New("config must not be nil")
 	}
@@ -348,10 +353,10 @@ func ResolveConfig(cli CLIValues, config *Config, lookupEnv LookupEnvFunc) (*Res
 
 	root := resolveString(cli.Root, "THRESH_ROOT", config.Root, lookupEnv)
 	if root == "" {
-		root, _ = lookupEnv("MDHQ_ROOT")
+		root = rootFallback
 	}
 	if root == "" {
-		return nil, errors.New("root is required (set --root, THRESH_ROOT, root, or MDHQ_ROOT)")
+		return nil, errors.New("root is required (set --root, THRESH_ROOT, or root)")
 	}
 
 	assets, err := resolveBool(cli.Assets, "THRESH_ASSETS", config.Assets, false, lookupEnv)
