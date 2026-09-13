@@ -300,6 +300,38 @@ sources:
 	}
 }
 
+func TestRunChecksCancellationAfterFinalWindow(t *testing.T) {
+	configPath := writeTestConfig(t, `
+root: ./articles
+timezone: UTC
+window:
+  daily: "07:00"
+sources:
+  - https://example.com/feed.xml
+`)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	pipeline := &cancelingPipeline{cancel: cancel}
+	result := runCLIForTest(
+		t,
+		ctx,
+		[]string{"--config", configPath},
+		func() time.Time { return time.Date(2026, 9, 12, 19, 0, 0, 0, time.UTC) },
+		nil,
+		pipeline,
+	)
+
+	if !errors.Is(result.err, context.Canceled) {
+		t.Fatalf("run error = %v, want context.Canceled", result.err)
+	}
+	if got, want := len(pipeline.requests), 1; got != want {
+		t.Fatalf("pipeline runs = %d, want %d", got, want)
+	}
+	if got, want := result.stderr, context.Canceled.Error()+"\n"; got != want {
+		t.Fatalf("stderr = %q, want %q", got, want)
+	}
+}
+
 func TestRunAddsCancellationToConcurrentPipelineFailure(t *testing.T) {
 	configPath := writeTestConfig(t, `
 root: ./articles

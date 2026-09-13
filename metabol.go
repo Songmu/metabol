@@ -95,23 +95,23 @@ func run(
 			}
 			break
 		}
-		if err := pipeline.Run(ctx, PipelineRequest{
+		pipelineErr := pipeline.Run(ctx, PipelineRequest{
 			Sources: sources,
 			Since:   window.Start,
 			Until:   window.End,
 			Root:    config.Root,
 			Assets:  config.Assets,
 			Update:  config.Update,
-		}, outStream, errStream); err != nil {
-			containedCancellation := errors.Is(err, ctx.Err())
-			failure, canceled := contextFailure(ctx, err)
+		}, outStream, errStream)
+		failure, canceled := contextFailure(ctx, pipelineErr)
+		if failure != nil {
 			failures = append(failures, failure)
-			if canceled {
-				if !containedCancellation {
-					fmt.Fprintln(errStream, ctx.Err())
-				}
-				break
+		}
+		if canceled {
+			if !errors.Is(pipelineErr, ctx.Err()) {
+				fmt.Fprintln(errStream, ctx.Err())
 			}
+			break
 		}
 	}
 	if err := errors.Join(failures...); err != nil {
