@@ -92,6 +92,7 @@ runs:
           npm install --prefix "$mdhq_prefix" --omit=dev \
             "@songmu/mdhq@${MDHQ_VERSION_INPUT}"
         else
+          mkdir -p "$mdhq_prefix"
           cp "$GITHUB_ACTION_PATH/package.json" "$GITHUB_ACTION_PATH/package-lock.json" \
             "$mdhq_prefix/"
           npm ci --prefix "$mdhq_prefix" --omit=dev
