@@ -1,4 +1,4 @@
-package thresh
+package metabol
 
 import (
 	"errors"
@@ -14,9 +14,9 @@ import (
 	"github.com/goccy/go-yaml"
 )
 
-const DefaultConfigPath = "thresh.yaml"
+const DefaultConfigPath = "metabol.yaml"
 
-// Config is the YAML configuration for thresh.
+// Config is the YAML configuration for metabol.
 type Config struct {
 	Root     string       `yaml:"root"`
 	Assets   *bool        `yaml:"assets"`
@@ -79,7 +79,7 @@ func (s Source) Validate() error {
 }
 
 // ValidateArticleURL checks that rawURL is an absolute HTTP(S) URL without
-// userinfo. Feed items are untrusted input that thresh passes to mdhq as a
+// userinfo. Feed items are untrusted input that metabol passes to mdhq as a
 // command-line argument, so values such as "--root=/tmp" or "mailto:x" must
 // never reach the downstream command.
 func ValidateArticleURL(rawURL string) error {
@@ -254,7 +254,7 @@ type CLIValues struct {
 
 // RegisterFlags registers configuration-related flags on fs.
 func (v *CLIValues) RegisterFlags(fs *flag.FlagSet) {
-	fs.Var(&v.Config, "config", "configuration file (default thresh.yaml)")
+	fs.Var(&v.Config, "config", "configuration file (default metabol.yaml)")
 	fs.Var(&v.Root, "root", "Markdown output root")
 	fs.Var(&v.Assets, "assets", "download article assets")
 	fs.Var(&v.Update, "update", "update existing articles")
@@ -266,7 +266,7 @@ func (v *CLIValues) RegisterFlags(fs *flag.FlagSet) {
 // LookupEnvFunc matches os.LookupEnv and is injectable for deterministic tests.
 type LookupEnvFunc func(string) (string, bool)
 
-// ConfigPath resolves CLI > THRESH_CONFIG > the default configuration path.
+// ConfigPath resolves CLI > METABOL_CONFIG > the default configuration path.
 // Explicit reports whether CLI or the environment selected the path.
 func (v CLIValues) ConfigPath(lookupEnv LookupEnvFunc) (path string, explicit bool, err error) {
 	if lookupEnv == nil {
@@ -278,9 +278,9 @@ func (v CLIValues) ConfigPath(lookupEnv LookupEnvFunc) (path string, explicit bo
 		}
 		return value, true, nil
 	}
-	if value, ok := lookupEnv("THRESH_CONFIG"); ok {
+	if value, ok := lookupEnv("METABOL_CONFIG"); ok {
 		if value == "" {
-			return "", true, errors.New("THRESH_CONFIG must not be empty")
+			return "", true, errors.New("METABOL_CONFIG must not be empty")
 		}
 		return value, true, nil
 	}
@@ -338,7 +338,7 @@ func LoadResolvedConfig(cli CLIValues, lookupEnv LookupEnvFunc) (*ResolvedConfig
 	return resolved, nil
 }
 
-// ResolveConfig applies CLI > THRESH_* > YAML values. Callers must provide root
+// ResolveConfig applies CLI > METABOL_* > YAML values. Callers must provide root
 // through one of these sources because this entry point has no path fallback.
 // Assets and update default to false, and timezone defaults to the local timezone.
 func ResolveConfig(cli CLIValues, config *Config, lookupEnv LookupEnvFunc) (*ResolvedConfig, error) {
@@ -357,24 +357,24 @@ func resolveConfig(cli CLIValues, config *Config, lookupEnv LookupEnvFunc, rootF
 		return nil, err
 	}
 
-	root := resolveString(cli.Root, "THRESH_ROOT", config.Root, lookupEnv)
+	root := resolveString(cli.Root, "METABOL_ROOT", config.Root, lookupEnv)
 	if root == "" {
 		root = rootFallback
 	}
 	if root == "" {
-		return nil, errors.New("root is required (set --root, THRESH_ROOT, or the root configuration key)")
+		return nil, errors.New("root is required (set --root, METABOL_ROOT, or the root configuration key)")
 	}
 
-	assets, err := resolveBool(cli.Assets, "THRESH_ASSETS", config.Assets, false, lookupEnv)
+	assets, err := resolveBool(cli.Assets, "METABOL_ASSETS", config.Assets, false, lookupEnv)
 	if err != nil {
 		return nil, err
 	}
-	update, err := resolveBool(cli.Update, "THRESH_UPDATE", config.Update, false, lookupEnv)
+	update, err := resolveBool(cli.Update, "METABOL_UPDATE", config.Update, false, lookupEnv)
 	if err != nil {
 		return nil, err
 	}
 
-	timezone := resolveString(cli.Timezone, "THRESH_TIMEZONE", config.Timezone, lookupEnv)
+	timezone := resolveString(cli.Timezone, "METABOL_TIMEZONE", config.Timezone, lookupEnv)
 	location := time.Local
 	if timezone != "" {
 		location, err = time.LoadLocation(timezone)
@@ -389,7 +389,7 @@ func resolveConfig(cli CLIValues, config *Config, lookupEnv LookupEnvFunc, rootF
 	}
 	windowCount, err := resolveInt(
 		cli.WindowCount,
-		"THRESH_WINDOW_COUNT",
+		"METABOL_WINDOW_COUNT",
 		config.Window.Count,
 		1,
 		lookupEnv,
@@ -402,7 +402,7 @@ func resolveConfig(cli CLIValues, config *Config, lookupEnv LookupEnvFunc, rootF
 	}
 
 	var at *time.Time
-	atValue, atSet := resolveOptionalString(cli.At, "THRESH_AT", lookupEnv)
+	atValue, atSet := resolveOptionalString(cli.At, "METABOL_AT", lookupEnv)
 	if atSet {
 		parsed, parseErr := ParseAt(atValue, location)
 		if parseErr != nil {

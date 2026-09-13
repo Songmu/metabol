@@ -1,4 +1,4 @@
-module github.com/Songmu/thresh
+module github.com/Songmu/metabol
 
 go 1.27.1
 

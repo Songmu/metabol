@@ -1,6 +1,6 @@
-# thresh
+# metabol
 
-`thresh` は、複数の情報源から一定期間の記事を収集し、`mdhq` を利用して Markdown として保存するための、設定駆動・stateless なオーケストレーターである。
+`metabol` は、複数の情報源から一定期間の記事を収集し、`mdhq` を利用して Markdown として保存するための、設定駆動・stateless なオーケストレーターである。
 
 `rssnip` と `mdhq` を組み合わせ、定期的な情報収集を、処理対象期間を再現可能な形で実行することを目的とする。
 
@@ -12,7 +12,7 @@
 scheduler
     │
     ▼
-  thresh
+  metabol
     │
     ├── config
     │
@@ -27,29 +27,33 @@ scheduler
 Markdown directory
 ```
 
-`thresh` 自身は crawler、feed parser、HTML-to-Markdown converter、scheduler などを再実装しない。
+`metabol` 自身は crawler、feed parser、HTML-to-Markdown converter、scheduler などを再実装しない。
 
 既存の小さなパーツを組み合わせ、その実行を宣言的な設定からオーケストレーションする。
 
 ## 名前
 
-`thresh` は「脱穀する」という意味。農作業では、収穫した穀物から利用可能な grain を取り出す工程を指す。これを、
+`metabol` は metabolism / metabolize を由来とする。外部から取り込んだ
+情報を、そのまま保存するのではなく、後から利用しやすい形へ変換して
+蓄積する一連の処理を、
 
 ```text
 Web / feeds
     ↓
-  thresh
+  metabol
     ↓
 usable Markdown
 ```
 
 になぞらえている。
 
-単に情報を取得するだけではなく、外部の情報源から素材を集め、自分が扱いやすい Markdown という形にして手元へ残す、というニュアンスを持たせる。
+単に情報を取得するだけではなく、外部の情報源から素材を取り込み、
+自分が扱いやすい Markdown へ代謝して手元に残す、というニュアンスを
+持たせる。
 
 ## 技術選定
 
-GoのCLIとして実装する。Songmu/tagpr 同様に、カスタムGitHub Actionsも提供する。カスタムGitHub Actionsは内部的には `thresh` バイナリを実行する、composite アクションとする。
+GoのCLIとして実装する。Songmu/tagpr 同様に、カスタムGitHub Actionsも提供する。カスタムGitHub Actionsは内部的には `metabol` バイナリを実行する、composite アクションとする。
 
 - rssnipはライブラリとして利用する
 - mdhqは外部コマンド実行する
@@ -64,7 +68,7 @@ GoのCLIとして実装する。Songmu/tagpr 同様に、カスタムGitHub Acti
 
 ### Small tools, loosely coupled
 
-`thresh` は既存 CLI やソフトウェアの責務を奪わない。
+`metabol` は既存 CLI やソフトウェアの責務を奪わない。
 
 主な責務分担は以下。
 
@@ -80,16 +84,16 @@ GoのCLIとして実装する。Songmu/tagpr 同様に、カスタムGitHub Acti
     * metadata の付与
     * Markdown の保存
     * 保存先や更新判定の管理
-* `thresh`
+* `metabol`
     * 設定の読み込み
     * 対象 time window の決定
     * source の列挙
     * `rssnip` → `mdhq` の orchestration
 
-保存レイアウトなど、`mdhq` がすでに持っている概念を `thresh` 側で再定義しない。
+保存レイアウトなど、`mdhq` がすでに持っている概念を `metabol` 側で再定義しない。
 
 ### Stateless
-`thresh` は原則として永続的な状態を持たない。例えば以下のようなモノ。
+`metabol` は原則として永続的な状態を持たない。例えば以下のようなモノ。
 
 * `last_run`
 * 最終取得日時
@@ -114,7 +118,7 @@ same config
 
 ### Scheduler independent
 
-`thresh` 自身は scheduler を持たず、定期実行は外部に任せる。例えば、
+`metabol` 自身は scheduler を持たず、定期実行は外部に任せる。例えば、
 
 * cron
 * launchd
@@ -129,7 +133,7 @@ scheduler
     │
     │ "when to run"
     ▼
-  thresh
+  metabol
     │
     │ "what time range to process"
     ▼
@@ -142,14 +146,14 @@ scheduler
 
 設定ファイルはYAMLとする。YAMLライブラリは `github.com/goccy/go-yaml` を使う。
 
-設定項目は一部、コマンドラインflagや環境変数で指定できるようにする。主に、GitHub Actionsなどで動的に設定できるようにするため。 `--flagname` を `THRESH_FLAGNAME` 環境変数で指定できるようにする。
+設定項目は一部、コマンドラインflagや環境変数で指定できるようにする。主に、GitHub Actionsなどで動的に設定できるようにするため。 `--flagname` を `METABOL_FLAGNAME` 環境変数で指定できるようにする。
 
 設定値は、以下の優先順位で解決する。
 
 ```text
 CLI flag
-    > THRESH_* environment variable
-    > thresh.yaml
+    > METABOL_* environment variable
+    > metabol.yaml
     > downstream tool specific fallback
     > default value
 ```
@@ -170,7 +174,7 @@ sources:
   - https://dropbox.tech/feed
 ```
 
-設定ファイル名は実行ディレクトリ直下の `thresh.yaml` を基本とする。 設定ファイルが見つからない場合はエラーとする。`--config` で変更可能とする。configが明示的に指定されているときには、 `thresh.yaml` を探しには行かない。
+設定ファイル名は実行ディレクトリ直下の `metabol.yaml` を基本とする。 設定ファイルが見つからない場合はエラーとする。`--config` で変更可能とする。configが明示的に指定されているときには、 `metabol.yaml` を探しには行かない。
 
 ### `root`
 
@@ -178,14 +182,14 @@ sources:
 
 ```text
 --root
-    > THRESH_ROOT
-    > thresh.yaml の root
+    > METABOL_ROOT
+    > metabol.yaml の root
     > 設定ファイルの配置ディレクトリ
 ```
 
 解決した値は `mdhq` の `--root` に明示的に渡す。
 設定ファイル内の相対 `root` は設定ファイルの配置ディレクトリから解決する。
-`--root` と `THRESH_ROOT` の相対パスは実行時のカレントディレクトリから解決する。
+`--root` と `METABOL_ROOT` の相対パスは実行時のカレントディレクトリから解決する。
 
 ### `assets`
 
@@ -222,7 +226,7 @@ window:
   daily: "07:00"
 ```
 
-これは、 **毎日 07:00 を境界として時間軸を window に分割する** という意味で、 毎日 07:00 に thresh を実行するという意味ではない。
+これは、 **毎日 07:00 を境界として時間軸を window に分割する** という意味で、 毎日 07:00 に metabol を実行するという意味ではない。
 
 例えば、
 
@@ -256,7 +260,7 @@ DST などの timezone transition によって local time が一意に定まら�
 
 解決後の boundary を実時間上で単調増加する列として扱い、隣接する boundary から常に `[start, end)` の window を作る。DST の移行を含む window は 23時間や25時間などになり得るが、時間軸上に隙間や重複は作らない。
 
-この解決規則は `thresh` 側で明示的に実装し、Go の `time.Date` が曖昧な local time に対して選択する timezone に依存しないようにする。
+この解決規則は `metabol` 側で明示的に実装し、Go の `time.Date` が曖昧な local time に対して選択する timezone に依存しないようにする。
 
 ### Last complete window
 
@@ -445,16 +449,16 @@ sources:
 基本的な実行形は、
 
 ```console
-$ thresh
+$ metabol
 ```
 
 を基本形とする。将来的にサブコマンドを追加する可能性はある。
 
-`--at` または `THRESH_AT` で基準時刻を明示し、設定された window definition に基づいて、その時刻を含む logical window を選択できる。
+`--at` または `METABOL_AT` で基準時刻を明示し、設定された window definition に基づいて、その時刻を含む logical window を選択できる。
 
 ```console
-$ thresh --at 2026-09-11
-$ THRESH_AT=2026-09-11T10:30:00+09:00 thresh
+$ metabol --at 2026-09-11
+$ METABOL_AT=2026-09-11T10:30:00+09:00 metabol
 ```
 
 RFC 3339 timestamp と `YYYY-MM-DD` を受け付ける。日付だけの場合は設定 timezone の `00:00` として扱い、boundary と一致する時刻はその boundary から始まる window に含める。これにより、任意の過去 window を DB や実行履歴なしに再要求できる。
@@ -467,7 +471,7 @@ stdout については、後続タスクが扱いやすい機械可読形式と�
 
 取得した記事情報を JSON Lines (`JSONL`) で出力する。
 
-`thresh` は `mdhq` の JSON 出力を解析し、後続処理に必要な項目を抽出して、`thresh` 自身の出力を組み立てる。`mdhq` の出力をそのまま pass-through はしないが、項目名と値の意味は可能な限り `mdhq` のものを踏襲する。
+`metabol` は `mdhq` の JSON 出力を解析し、後続処理に必要な項目を抽出して、`metabol` 自身の出力を組み立てる。`mdhq` の出力をそのまま pass-through はしないが、項目名と値の意味は可能な限り `mdhq` のものを踏襲する。
 
 ```json
 {"requestedUrl":"https://example.com/a","sourceUrl":"https://example.com/a","path":"/data/mdhq/example.com/a.md","status":"saved"}
@@ -524,12 +528,12 @@ sources:
   - https://dropbox.tech/feed
 ```
 
-に対して thresh を実行すると、
+に対して metabol を実行すると、
 
 ```text
-1. thresh.yaml を読み込む
+1. metabol.yaml を読み込む
 2. timezone を決定する
-3. `--at` / `THRESH_AT` があればその基準時刻を含む window、なければ現在時刻から last complete window を求める
+3. `--at` / `METABOL_AT` があればその基準時刻を含む window、なければ現在時刻から last complete window を求める
    [2026-09-10 07:00, 2026-09-11 07:00)
 4. 各 source に対して rssnip を実行する
 5. window に含まれる記事 URL を得る
@@ -542,7 +546,7 @@ sources:
 
 ## やらないこと
 
-以下を `thresh` の責務にしない。
+以下を `metabol` の責務にしない。
 
 * RSS parser の再実装
 * HTML 本文抽出の再実装
@@ -563,7 +567,7 @@ sources:
 
 ## 設計方針
 
-`thresh` の設計では以下を優先する。
+`metabol` の設計では以下を優先する。
 
 1. **Stateless**
 	* 実行履歴ではなく logical window から対象を決定する。
@@ -588,7 +592,7 @@ sources:
    のような設定を優先し、最初から cron DSL などを要求しない。
 
 8. **Minimal abstraction**
-	* `rssnip` や `mdhq` がすでに持つ概念を `thresh` 側に重複して持たない。
+	* `rssnip` や `mdhq` がすでに持つ概念を `metabol` 側に重複して持たない。
 9. **Extensible, not speculative**
 	* `sources` の object 化や window boundary generator のように拡張可能な内部構造は持つが、まだ必要のない機能を公開仕様として先行実装しない。
 
@@ -610,8 +614,8 @@ sources:
 を読み込み、
 
 ```console
-$ thresh
-$ thresh --at 2026-09-11
+$ metabol
+$ metabol --at 2026-09-11
 ```
 
 により、
@@ -643,9 +647,9 @@ Markdown files
 
 ## 要約
 
-`thresh` は、
+`metabol` は、
 
-> **scheduler から独立した固定 time window を設定から決定し、デフォルトの last-complete window または `--at` / `THRESH_AT` で明示した window について複数 source から記事を収集し、`rssnip` と `mdhq` を組み合わせて Markdown として蓄積する stateless なオーケストレーター**
+> **scheduler から独立した固定 time window を設定から決定し、デフォルトの last-complete window または `--at` / `METABOL_AT` で明示した window について複数 source から記事を収集し、`rssnip` と `mdhq` を組み合わせて Markdown として蓄積する stateless なオーケストレーター**
 
 である。
 
@@ -654,7 +658,7 @@ Markdown files
 ```text
 window.daily = 07:00
 + last-complete by default
-+ explicit selection by --at / THRESH_AT
++ explicit selection by --at / METABOL_AT
 + [start, end)
 ```
 

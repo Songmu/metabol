@@ -1,4 +1,4 @@
-package thresh
+package metabol
 
 import (
 	"bytes"
@@ -62,7 +62,7 @@ func TestRunVersionDoesNotRequireConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("run returned error: %v", err)
 	}
-	if got, want := stdout.String(), "thresh v0.0.0 (rev:HEAD)\n"; got != want {
+	if got, want := stdout.String(), "metabol v0.0.0 (rev:HEAD)\n"; got != want {
 		t.Fatalf("stdout = %q, want %q", got, want)
 	}
 	if stderr.Len() != 0 {

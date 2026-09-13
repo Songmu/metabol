@@ -1,4 +1,4 @@
-package thresh
+package metabol
 
 import (
 	"flag"
@@ -351,10 +351,10 @@ func TestCLIValuesConfigPath(t *testing.T) {
 		wantExplicit bool
 		wantErr      bool
 	}{
-		{name: "default", want: DefaultConfigPath},
-		{name: "environment", env: map[string]string{"THRESH_CONFIG": "env.yaml"}, want: "env.yaml", wantExplicit: true},
-		{name: "cli", cli: "cli.yaml", env: map[string]string{"THRESH_CONFIG": "env.yaml"}, want: "cli.yaml", wantExplicit: true},
-		{name: "empty environment", env: map[string]string{"THRESH_CONFIG": ""}, wantExplicit: true, wantErr: true},
+		{name: "default", want: "metabol.yaml"},
+		{name: "environment", env: map[string]string{"METABOL_CONFIG": "env.yaml"}, want: "env.yaml", wantExplicit: true},
+		{name: "cli", cli: "cli.yaml", env: map[string]string{"METABOL_CONFIG": "env.yaml"}, want: "cli.yaml", wantExplicit: true},
+		{name: "empty environment", env: map[string]string{"METABOL_CONFIG": ""}, wantExplicit: true, wantErr: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -434,11 +434,11 @@ func TestResolveConfigPrecedence(t *testing.T) {
 			name:   "environment over yaml",
 			config: validConfig(),
 			env: map[string]string{
-				"THRESH_ROOT":         "env-root",
-				"THRESH_ASSETS":       "false",
-				"THRESH_UPDATE":       "false",
-				"THRESH_TIMEZONE":     "Asia/Tokyo",
-				"THRESH_WINDOW_COUNT": "2",
+				"METABOL_ROOT":         "env-root",
+				"METABOL_ASSETS":       "false",
+				"METABOL_UPDATE":       "false",
+				"METABOL_TIMEZONE":     "Asia/Tokyo",
+				"METABOL_WINDOW_COUNT": "2",
 			},
 			wantRoot:   "env-root",
 			wantAssets: false,
@@ -450,11 +450,11 @@ func TestResolveConfigPrecedence(t *testing.T) {
 			name:   "cli over environment",
 			config: validConfig(),
 			env: map[string]string{
-				"THRESH_ROOT":         "env-root",
-				"THRESH_ASSETS":       "true",
-				"THRESH_UPDATE":       "true",
-				"THRESH_TIMEZONE":     "UTC",
-				"THRESH_WINDOW_COUNT": "2",
+				"METABOL_ROOT":         "env-root",
+				"METABOL_ASSETS":       "true",
+				"METABOL_UPDATE":       "true",
+				"METABOL_TIMEZONE":     "UTC",
+				"METABOL_WINDOW_COUNT": "2",
 			},
 			setCLI: func(values *CLIValues) {
 				_ = values.Root.Set("cli-root")
@@ -476,7 +476,7 @@ func TestResolveConfigPrecedence(t *testing.T) {
 				config.Timezone = "Not/A_Zone"
 				return config
 			}(),
-			env:        map[string]string{"THRESH_TIMEZONE": "UTC"},
+			env:        map[string]string{"METABOL_TIMEZONE": "UTC"},
 			wantRoot:   "yaml-root",
 			wantAssets: true,
 			wantUpdate: true,
@@ -524,6 +524,35 @@ func TestResolveConfigPrecedence(t *testing.T) {
 	}
 }
 
+func TestResolveConfigIgnoresLegacyEnvironment(t *testing.T) {
+	config := validConfig()
+	legacyPrefix := "TH" + "RESH_"
+	got, err := ResolveConfig(CLIValues{}, config, lookup(map[string]string{
+		legacyPrefix + "ROOT":         "legacy-root",
+		legacyPrefix + "ASSETS":       "false",
+		legacyPrefix + "UPDATE":       "false",
+		legacyPrefix + "TIMEZONE":     "Asia/Tokyo",
+		legacyPrefix + "AT":           "2026-09-11",
+		legacyPrefix + "WINDOW_COUNT": "2",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Root != "yaml-root" || !got.Assets || !got.Update {
+		t.Fatalf("got root/assets/update %q/%v/%v, want %q/%v/%v",
+			got.Root, got.Assets, got.Update, "yaml-root", true, true)
+	}
+	if got.Location.String() != "UTC" {
+		t.Fatalf("location = %q, want UTC", got.Location)
+	}
+	if got.WindowCount != 1 {
+		t.Fatalf("window count = %d, want 1", got.WindowCount)
+	}
+	if got.At != nil {
+		t.Fatalf("at = %v, want nil", got.At)
+	}
+}
+
 func TestResolveConfigErrors(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -541,8 +570,8 @@ func TestResolveConfigErrors(t *testing.T) {
 			env:     map[string]string{"MDHQ_ROOT": "mdhq-root"},
 			wantErr: "root is required",
 		},
-		{name: "invalid assets environment", config: validConfig(), env: map[string]string{"THRESH_ASSETS": "sometimes"}, wantErr: "THRESH_ASSETS"},
-		{name: "invalid update environment", config: validConfig(), env: map[string]string{"THRESH_UPDATE": "sometimes"}, wantErr: "THRESH_UPDATE"},
+		{name: "invalid assets environment", config: validConfig(), env: map[string]string{"METABOL_ASSETS": "sometimes"}, wantErr: "METABOL_ASSETS"},
+		{name: "invalid update environment", config: validConfig(), env: map[string]string{"METABOL_UPDATE": "sometimes"}, wantErr: "METABOL_UPDATE"},
 		{
 			name: "invalid yaml timezone",
 			config: func() *Config {
@@ -552,11 +581,11 @@ func TestResolveConfigErrors(t *testing.T) {
 			}(),
 			wantErr: "timezone",
 		},
-		{name: "invalid timezone environment", config: validConfig(), env: map[string]string{"THRESH_TIMEZONE": "Not/A_Zone"}, wantErr: "timezone"},
-		{name: "invalid at environment", config: validConfig(), env: map[string]string{"THRESH_AT": "last-week"}, wantErr: "must be RFC3339 or YYYY-MM-DD"},
-		{name: "invalid window count environment", config: validConfig(), env: map[string]string{"THRESH_WINDOW_COUNT": "many"}, wantErr: "THRESH_WINDOW_COUNT"},
-		{name: "zero window count environment", config: validConfig(), env: map[string]string{"THRESH_WINDOW_COUNT": "0"}, wantErr: "between 1 and 366"},
-		{name: "excessive window count environment", config: validConfig(), env: map[string]string{"THRESH_WINDOW_COUNT": "367"}, wantErr: "between 1 and 366"},
+		{name: "invalid timezone environment", config: validConfig(), env: map[string]string{"METABOL_TIMEZONE": "Not/A_Zone"}, wantErr: "timezone"},
+		{name: "invalid at environment", config: validConfig(), env: map[string]string{"METABOL_AT": "last-week"}, wantErr: "must be RFC3339 or YYYY-MM-DD"},
+		{name: "invalid window count environment", config: validConfig(), env: map[string]string{"METABOL_WINDOW_COUNT": "many"}, wantErr: "METABOL_WINDOW_COUNT"},
+		{name: "zero window count environment", config: validConfig(), env: map[string]string{"METABOL_WINDOW_COUNT": "0"}, wantErr: "between 1 and 366"},
+		{name: "excessive window count environment", config: validConfig(), env: map[string]string{"METABOL_WINDOW_COUNT": "367"}, wantErr: "between 1 and 366"},
 		{
 			name: "zero yaml window count",
 			config: func() *Config {
@@ -583,7 +612,7 @@ func TestLoadResolvedConfigDefaultsRootToConfigDirectory(t *testing.T) {
 	if err := os.Mkdir(configDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(configDir, "thresh.yaml")
+	path := filepath.Join(configDir, "metabol.yaml")
 	tests := []struct {
 		name     string
 		root     string
@@ -600,7 +629,7 @@ func TestLoadResolvedConfigDefaultsRootToConfigDirectory(t *testing.T) {
 		{
 			name:     "environment over yaml",
 			root:     "yaml-root",
-			env:      map[string]string{"THRESH_ROOT": "env-root"},
+			env:      map[string]string{"METABOL_ROOT": "env-root"},
 			wantRoot: "env-root",
 		},
 		{
@@ -654,7 +683,7 @@ func TestResolveConfigAt(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			config := validConfig()
 			config.Timezone = tt.zone
-			got, err := ResolveConfig(CLIValues{}, config, lookup(map[string]string{"THRESH_AT": tt.at}))
+			got, err := ResolveConfig(CLIValues{}, config, lookup(map[string]string{"METABOL_AT": tt.at}))
 			if err != nil {
 				t.Fatal(err)
 			}

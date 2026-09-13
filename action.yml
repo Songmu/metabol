@@ -1,9 +1,9 @@
-name: Run thresh
+name: Run metabol
 description: Collect articles for logical time windows and save them as Markdown
 author: Songmu
 inputs:
   config:
-    description: Path to the thresh configuration file
+    description: Path to the metabol configuration file
     required: false
   root:
     description: Directory in which mdhq stores Markdown
@@ -26,15 +26,15 @@ inputs:
 outputs:
   manifest:
     description: Absolute path to the JSONL manifest
-    value: ${{ steps.thresh.outputs.manifest }}
+    value: ${{ steps.metabol.outputs.manifest }}
   count:
     description: Number of nonempty lines in the JSONL manifest
-    value: ${{ steps.thresh.outputs.count }}
+    value: ${{ steps.metabol.outputs.count }}
 runs:
   using: composite
   steps:
-    - name: Install and run thresh
-      id: thresh
+    - name: Install and run metabol
+      id: metabol
       shell: bash
       env:
         CONFIG_INPUT: ${{ inputs.config }}

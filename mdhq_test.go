@@ -1,4 +1,4 @@
-package thresh
+package metabol
 
 import (
 	"context"

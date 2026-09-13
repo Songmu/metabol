@@ -1,4 +1,4 @@
-package thresh
+package metabol
 
 const version = "0.0.0"
 

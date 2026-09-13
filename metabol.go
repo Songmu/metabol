@@ -1,4 +1,4 @@
-package thresh
+package metabol
 
 import (
 	"context"
@@ -10,13 +10,13 @@ import (
 	"time"
 )
 
-const cmdName = "thresh"
+const cmdName = "metabol"
 
 type pipelineRunner interface {
 	Run(context.Context, PipelineRequest, io.Writer, io.Writer) error
 }
 
-// Run the thresh
+// Run executes metabol.
 func Run(ctx context.Context, argv []string, outStream, errStream io.Writer) error {
 	return run(ctx, argv, outStream, errStream, time.Now, os.LookupEnv, nil)
 }

@@ -17,5 +17,5 @@ func TestBinaryEmbedsTimezoneData(t *testing.T) {
 			return
 		}
 	}
-	t.Fatal("time/tzdata is not linked into the thresh binary")
+	t.Fatal("time/tzdata is not linked into the metabol binary")
 }

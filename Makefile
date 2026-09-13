@@ -1,6 +1,6 @@
 VERSION = $(shell godzil show-version)
 CURRENT_REVISION = $(shell git rev-parse --short HEAD)
-BUILD_LDFLAGS = "-s -w -X github.com/Songmu/thresh.revision=$(CURRENT_REVISION)"
+BUILD_LDFLAGS = "-s -w -X github.com/Songmu/metabol.revision=$(CURRENT_REVISION)"
 u := $(if $(update),-u)
 
 .PHONY: deps
@@ -19,11 +19,11 @@ test:
 
 .PHONY: build
 build:
-	go build -ldflags=$(BUILD_LDFLAGS) ./cmd/thresh
+	go build -ldflags=$(BUILD_LDFLAGS) ./cmd/metabol
 
 .PHONY: install
 install:
-	go install -ldflags=$(BUILD_LDFLAGS) ./cmd/thresh
+	go install -ldflags=$(BUILD_LDFLAGS) ./cmd/metabol
 
 .PHONY: release
 release: devel-deps
@@ -36,7 +36,7 @@ DIST_DIR = dist/v$(VERSION)
 .PHONY: crossbuild
 crossbuild: CREDITS
 	rm -rf $(DIST_DIR)
-	godzil crossbuild -pv=v$(VERSION) -build-ldflags=$(BUILD_LDFLAGS) \
+	godzil crossbuild -n=metabol -pv=v$(VERSION) -build-ldflags=$(BUILD_LDFLAGS) \
       -os=linux,darwin -d=$(DIST_DIR) ./cmd/*
 	cd $(DIST_DIR) && shasum -a 256 $$(find * -type f -maxdepth 0) > SHA256SUMS
 

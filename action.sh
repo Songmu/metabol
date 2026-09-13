@@ -2,11 +2,11 @@
 set -euo pipefail
 
 cd "$GITHUB_WORKSPACE"
-thresh_bin="$(mktemp -d)"
+metabol_bin="$(mktemp -d)"
 mdhq_prefix="$(mktemp -d "${RUNNER_TEMP%/}/mdhq.XXXXXX")"
-trap 'rm -rf "$thresh_bin" "$mdhq_prefix"' EXIT
+trap 'rm -rf "$metabol_bin" "$mdhq_prefix"' EXIT
 
-manifest_base="$(mktemp "${RUNNER_TEMP%/}/thresh-manifest.XXXXXX")"
+manifest_base="$(mktemp "${RUNNER_TEMP%/}/metabol-manifest.XXXXXX")"
 manifest="${manifest_base}.jsonl"
 mv "$manifest_base" "$manifest"
 {
@@ -14,11 +14,11 @@ mv "$manifest_base" "$manifest"
   echo "count=0"
 } >> "$GITHUB_OUTPUT"
 
-sh "$GITHUB_ACTION_PATH/install.sh" -b "$thresh_bin" latest
+sh "$GITHUB_ACTION_PATH/install.sh" -b "$metabol_bin" latest
 cp "$GITHUB_ACTION_PATH/package.json" "$GITHUB_ACTION_PATH/package-lock.json" \
   "$mdhq_prefix/"
 npm ci --prefix "$mdhq_prefix" --omit=dev
-export PATH="$thresh_bin:$mdhq_prefix/node_modules/.bin:$PATH"
+export PATH="$metabol_bin:$mdhq_prefix/node_modules/.bin:$PATH"
 
 args=()
 if [[ -n "${CONFIG_INPUT:-}" ]]; then
@@ -45,10 +45,10 @@ fi
 
 set +e
 if ((${#args[@]})); then
-  thresh "${args[@]}" | tee "$manifest"
+  metabol "${args[@]}" | tee "$manifest"
   statuses=("${PIPESTATUS[@]}")
 else
-  thresh | tee "$manifest"
+  metabol | tee "$manifest"
   statuses=("${PIPESTATUS[@]}")
 fi
 set -e

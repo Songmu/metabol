@@ -1,8 +1,8 @@
 # yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
 
 "$schema": https://json-schema.org/draft/2020-12/schema
-title: Thresh Configuration Schema
-description: Configuration for the thresh feed orchestrator.
+title: Metabol Configuration Schema
+description: Configuration for the metabol feed orchestrator.
 type: object
 required:
   - window
@@ -13,7 +13,7 @@ properties:
     minLength: 1
     description: |
       Directory where mdhq writes Markdown files. This may be omitted when
-      the --root flag or THRESH_ROOT supplies the value; otherwise, the
+      the --root flag or METABOL_ROOT supplies the value; otherwise, the
       configuration file's directory is used. Relative paths are resolved from
       the configuration file's directory.
   assets:

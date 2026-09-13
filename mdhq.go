@@ -1,4 +1,4 @@
-package thresh
+package metabol
 
 import (
 	"bytes"
@@ -18,7 +18,7 @@ type MDHQOptions struct {
 	Update bool
 }
 
-// MDHQResult is the stable subset of mdhq's JSON result emitted by thresh.
+// MDHQResult is the stable subset of mdhq's JSON result emitted by metabol.
 type MDHQResult struct {
 	RequestedURL string `json:"requestedUrl"`
 	SourceURL    string `json:"sourceUrl"`
