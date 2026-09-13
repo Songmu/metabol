@@ -32,10 +32,10 @@ $ go install github.com/Songmu/thresh/cmd/thresh@latest
 ```
 
 **Prerequisite:** The supported `@songmu/mdhq` version is managed in
-`package.json` and `package-lock.json`; the locked version requires Node.js 22
-or later. `thresh` invokes `mdhq` as an external command, so install it
-separately and ensure it is on `PATH`. To use the repository-managed version
-during development:
+`package.json` and `package-lock.json`; the locked dependency graph requires
+Node.js 22.19.0 or later. `thresh` invokes `mdhq` as an external command, so
+install it separately and ensure it is on `PATH`. To use the
+repository-managed version during development:
 
 ```console
 $ npm ci
@@ -181,8 +181,8 @@ calculation errors fail before article processing.
 
 ## GitHub Action
 
-**Prerequisite:** The runner must provide Node.js 22 or later because the
-locked `@songmu/mdhq` version currently requires it.
+**Prerequisite:** The runner must provide Node.js 22.19.0 or later because the
+locked `@songmu/mdhq` dependency graph currently requires it.
 
 The repository includes a composite action that installs `thresh` and an
 isolated, lockfile-pinned `@songmu/mdhq`, then captures stdout as a JSONL

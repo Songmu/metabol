@@ -7,7 +7,7 @@ inputs:
     required: false
     default: "v0.0.0"
   mdhq-version:
-    description: Optional @songmu/mdhq version override; leave empty to use the bundled package-lock.json version (currently 0.0.5)
+    description: Optional @songmu/mdhq version override; leave empty to use the bundled package-lock.json version
     required: false
     default: ""
   config:
