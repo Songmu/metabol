@@ -71,14 +71,19 @@ runs:
           echo "count=0"
         } >> "$GITHUB_OUTPUT"
 
+        is_exact_semver() {
+          local value="$1"
+          local semver_core='(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)'
+          local semver_identifier='(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)'
+          local semver_prerelease="(-${semver_identifier}(\.${semver_identifier})*)?"
+          local semver_build='(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?'
+          [[ "$value" =~ ^${semver_core}${semver_prerelease}${semver_build}$ ]]
+        }
+
         action_ref="${ACTION_REF:-main}"
         thresh_version="$THRESH_VERSION_INPUT"
         if [[ -z "$thresh_version" ]]; then
-          semver_core='(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)'
-          semver_identifier='(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)'
-          semver_prerelease="(-${semver_identifier}(\.${semver_identifier})*)?"
-          semver_build='(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?'
-          if [[ "$action_ref" =~ ^v${semver_core}${semver_prerelease}${semver_build}$ ]]; then
+          if [[ "$action_ref" == v* ]] && is_exact_semver "${action_ref#v}"; then
             thresh_version="$action_ref"
           else
             thresh_version="latest"
@@ -89,22 +94,18 @@ runs:
           sh -s -- -b "$thresh_bin" "$thresh_version" 2>&1
 
         mkdir -p "$mdhq_prefix"
-        cp "$GITHUB_ACTION_PATH/package.json" "$mdhq_prefix/"
         if [[ -n "$MDHQ_VERSION_INPUT" ]]; then
-          mdhq_semver_core='(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)'
-          mdhq_semver_identifier='(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)'
-          mdhq_semver_prerelease="(-${mdhq_semver_identifier}(\.${mdhq_semver_identifier})*)?"
-          mdhq_semver_build='(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?'
-          if [[ ! "$MDHQ_VERSION_INPUT" =~ ^${mdhq_semver_core}${mdhq_semver_prerelease}${mdhq_semver_build}$ ]]; then
+          if ! is_exact_semver "$MDHQ_VERSION_INPUT"; then
             echo "::error::mdhq-version must be an exact semantic version"
             exit 1
           fi
-          npm pkg set --prefix "$mdhq_prefix" \
-            "dependencies.@songmu/mdhq=${MDHQ_VERSION_INPUT}"
+          printf '{"private":true,"dependencies":{"@songmu/mdhq":"%s"}}\n' \
+            "$MDHQ_VERSION_INPUT" > "$mdhq_prefix/package.json"
           npm install --prefix "$mdhq_prefix" --package-lock-only --ignore-scripts \
             --omit=dev
         else
-          cp "$GITHUB_ACTION_PATH/package-lock.json" "$mdhq_prefix/"
+          cp "$GITHUB_ACTION_PATH/package.json" "$GITHUB_ACTION_PATH/package-lock.json" \
+            "$mdhq_prefix/"
         fi
         npm ci --prefix "$mdhq_prefix" --omit=dev
         export PATH="$thresh_bin:$mdhq_prefix/node_modules/.bin:$PATH"
