@@ -93,7 +93,6 @@ runs:
           "https://raw.githubusercontent.com/Songmu/thresh/${action_ref}/install.sh" |
           sh -s -- -b "$thresh_bin" "$thresh_version" 2>&1
 
-        mkdir -p "$mdhq_prefix"
         if [[ -z "$mdhq_prefix" || "$mdhq_prefix" != "${RUNNER_TEMP%/}/"* ]]; then
           echo "::error::failed to create a safe temporary directory for mdhq"
           exit 1
