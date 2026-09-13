@@ -26,7 +26,7 @@ list for the feeds to collect:
 metabol init
 ```
 
-The generated configuration is:
+An example configuration is:
 
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Songmu/metabol/main/schema.yaml
