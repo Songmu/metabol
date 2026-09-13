@@ -2,14 +2,6 @@ name: Run thresh
 description: Collect articles for logical time windows and save them as Markdown
 author: Songmu
 inputs:
-  version:
-    description: Version of thresh to install; defaults to an exact version action ref or latest
-    required: false
-    default: "v0.0.0"
-  mdhq-version:
-    description: Optional @songmu/mdhq version override; leave empty to use the bundled package-lock.json version
-    required: false
-    default: ""
   config:
     description: Path to the thresh configuration file
     required: false
@@ -45,9 +37,6 @@ runs:
       id: thresh
       shell: bash
       env:
-        ACTION_REF: ${{ github.action_ref }}
-        THRESH_VERSION_INPUT: ${{ inputs.version }}
-        MDHQ_VERSION_INPUT: ${{ inputs.mdhq-version }}
         CONFIG_INPUT: ${{ inputs.config }}
         ROOT_INPUT: ${{ inputs.root }}
         ASSETS_INPUT: ${{ inputs.assets }}
