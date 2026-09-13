@@ -327,6 +327,9 @@ func LoadResolvedConfig(cli CLIValues, lookupEnv LookupEnvFunc) (*ResolvedConfig
 	if err != nil {
 		return nil, err
 	}
+	if config.Root != "" && !filepath.IsAbs(config.Root) {
+		config.Root = filepath.Join(filepath.Dir(path), config.Root)
+	}
 	resolved, err := resolveConfig(cli, config, lookupEnv, filepath.Dir(path))
 	if err != nil {
 		return nil, err
@@ -335,7 +338,8 @@ func LoadResolvedConfig(cli CLIValues, lookupEnv LookupEnvFunc) (*ResolvedConfig
 	return resolved, nil
 }
 
-// ResolveConfig applies CLI > THRESH_* > YAML values and requires a root value.
+// ResolveConfig applies CLI > THRESH_* > YAML values. Callers must provide root
+// through one of these sources because this entry point has no path fallback.
 func ResolveConfig(cli CLIValues, config *Config, lookupEnv LookupEnvFunc) (*ResolvedConfig, error) {
 	return resolveConfig(cli, config, lookupEnv, "")
 }

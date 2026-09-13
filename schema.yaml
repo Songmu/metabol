@@ -14,7 +14,8 @@ properties:
     description: |
       Directory where mdhq writes Markdown files. This may be omitted when
       THRESH_ROOT supplies the value; otherwise, the configuration file's
-      directory is used.
+      directory is used. Relative paths are resolved from the configuration
+      file's directory.
   assets:
     type: boolean
     default: false

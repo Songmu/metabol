@@ -105,6 +105,9 @@ The supported flags and corresponding environment variables are:
 
 When `root` is not set by the CLI, `THRESH_ROOT`, or the configuration file,
 thresh uses the directory containing the selected configuration file.
+Relative `root` values in the configuration file are resolved from that file's
+directory. Relative values passed with `--root` or `THRESH_ROOT` are resolved
+from the command's working directory.
 `assets` and `update` default to `false`; `timezone` defaults to the local
 timezone. After resolving `assets`, `thresh` explicitly passes either
 `--assets` or `--no-assets` to `mdhq`, so the resolved `thresh` setting

@@ -588,19 +588,26 @@ func TestLoadResolvedConfigDefaultsRootToConfigDirectory(t *testing.T) {
 		name     string
 		root     string
 		env      map[string]string
+		cliRoot  string
 		wantRoot string
 	}{
 		{
-			name:     "config directory",
+			name:     "config directory ignores MDHQ_ROOT",
 			env:      map[string]string{"MDHQ_ROOT": "mdhq-root"},
 			wantRoot: configDir,
 		},
-		{name: "yaml", root: "yaml-root", wantRoot: "yaml-root"},
+		{name: "relative yaml", root: "yaml-root", wantRoot: filepath.Join(configDir, "yaml-root")},
 		{
 			name:     "environment over yaml",
 			root:     "yaml-root",
 			env:      map[string]string{"THRESH_ROOT": "env-root"},
 			wantRoot: "env-root",
+		},
+		{
+			name:     "cli over yaml",
+			root:     "yaml-root",
+			cliRoot:  "cli-root",
+			wantRoot: "cli-root",
 		},
 	}
 	for _, tt := range tests {
@@ -613,6 +620,11 @@ func TestLoadResolvedConfigDefaultsRootToConfigDirectory(t *testing.T) {
 			var cli CLIValues
 			if err := cli.Config.Set(path); err != nil {
 				t.Fatal(err)
+			}
+			if tt.cliRoot != "" {
+				if err := cli.Root.Set(tt.cliRoot); err != nil {
+					t.Fatal(err)
+				}
 			}
 			resolved, err := LoadResolvedConfig(cli, lookup(tt.env))
 			if err != nil {
