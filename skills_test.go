@@ -9,50 +9,45 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestRunSkillsList(t *testing.T) {
 	t.Parallel()
-	var stdout, stderr bytes.Buffer
-	err := run(
+	result := runCLIForTest(
+		t,
 		context.Background(),
 		[]string{"skills", "list"},
-		&stdout,
-		&stderr,
-		func() time.Time { return time.Time{} },
-		func(string) (string, bool) { return "", false },
+		nil,
+		nil,
 		&recordingPipeline{},
 	)
-	if err != nil {
-		t.Fatal(err)
+	if result.err != nil {
+		t.Fatal(result.err)
 	}
-	if got := stdout.String(); !strings.Contains(got, "metabol") ||
+	if got := result.stdout; !strings.Contains(got, "metabol") ||
 		!strings.Contains(got, "collect articles") {
 		t.Errorf("stdout = %q", got)
 	}
-	if stderr.Len() != 0 {
-		t.Errorf("stderr = %q", stderr.String())
+	if result.stderr != "" {
+		t.Errorf("stderr = %q", result.stderr)
 	}
 }
 
 func TestRunSkillsUsage(t *testing.T) {
 	t.Parallel()
-	var stdout, stderr bytes.Buffer
-	err := run(
+	result := runCLIForTest(
+		t,
 		context.Background(),
 		[]string{"skills"},
-		&stdout,
-		&stderr,
-		func() time.Time { return time.Time{} },
-		func(string) (string, bool) { return "", false },
+		nil,
+		nil,
 		&recordingPipeline{},
 	)
-	if err != nil {
-		t.Fatal(err)
+	if result.err != nil {
+		t.Fatal(result.err)
 	}
-	if stdout.Len() != 0 {
-		t.Errorf("stdout = %q", stdout.String())
+	if result.stdout != "" {
+		t.Errorf("stdout = %q", result.stdout)
 	}
 	for _, want := range []string{
 		"Usage: metabol skills <command> [options]",
@@ -60,8 +55,8 @@ func TestRunSkillsUsage(t *testing.T) {
 		"status",
 		"uninstall",
 	} {
-		if !strings.Contains(stderr.String(), want) {
-			t.Errorf("stderr missing %q:\n%s", want, stderr.String())
+		if !strings.Contains(result.stderr, want) {
+			t.Errorf("stderr missing %q:\n%s", want, result.stderr)
 		}
 	}
 }
@@ -69,29 +64,27 @@ func TestRunSkillsUsage(t *testing.T) {
 func TestRunSkillsInstallDryRun(t *testing.T) {
 	t.Parallel()
 	prefix := filepath.Join(t.TempDir(), "skills")
-	var stdout, stderr bytes.Buffer
-	err := run(
+	result := runCLIForTest(
+		t,
 		context.Background(),
 		[]string{"skills", "install", "--dry-run", "--prefix", prefix},
-		&stdout,
-		&stderr,
-		func() time.Time { return time.Time{} },
-		func(string) (string, bool) { return "", false },
+		nil,
+		nil,
 		&recordingPipeline{},
 	)
-	if err != nil {
-		t.Fatal(err)
+	if result.err != nil {
+		t.Fatal(result.err)
 	}
 	for _, want := range []string{
 		"installed (dry-run): metabol",
 		"[dry-run] no changes were made",
 	} {
-		if !strings.Contains(stdout.String(), want) {
-			t.Errorf("stdout missing %q:\n%s", want, stdout.String())
+		if !strings.Contains(result.stdout, want) {
+			t.Errorf("stdout missing %q:\n%s", want, result.stdout)
 		}
 	}
-	if stderr.Len() != 0 {
-		t.Errorf("stderr = %q", stderr.String())
+	if result.stderr != "" {
+		t.Errorf("stderr = %q", result.stderr)
 	}
 	if _, err := os.Stat(prefix); !errors.Is(err, os.ErrNotExist) {
 		t.Errorf("dry-run created %q or returned unexpected error: %v", prefix, err)
@@ -126,20 +119,18 @@ func TestEmbeddedSkill(t *testing.T) {
 
 func TestHelpMentionsSkillsSubcommand(t *testing.T) {
 	t.Parallel()
-	var stdout, stderr bytes.Buffer
-	err := run(
+	result := runCLIForTest(
+		t,
 		context.Background(),
 		[]string{"-h"},
-		&stdout,
-		&stderr,
-		func() time.Time { return time.Time{} },
-		func(string) (string, bool) { return "", false },
+		nil,
+		nil,
 		&recordingPipeline{},
 	)
-	if !errors.Is(err, flag.ErrHelp) {
-		t.Fatalf("error = %v, want flag.ErrHelp", err)
+	if !errors.Is(result.err, flag.ErrHelp) {
+		t.Fatalf("error = %v, want flag.ErrHelp", result.err)
 	}
-	if want := "metabol skills <command>"; !strings.Contains(stderr.String(), want) {
-		t.Errorf("stderr missing %q:\n%s", want, stderr.String())
+	if want := "metabol skills <command>"; !strings.Contains(result.stderr, want) {
+		t.Errorf("stderr missing %q:\n%s", want, result.stderr)
 	}
 }

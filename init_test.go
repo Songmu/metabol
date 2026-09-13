@@ -143,59 +143,71 @@ func TestRunInitDoesNotOverwriteExistingConfig(t *testing.T) {
 func TestRunInitUsageAndArguments(t *testing.T) {
 	t.Parallel()
 
-	t.Run("help", func(t *testing.T) {
-		var stdout, stderr bytes.Buffer
-		err := runInitAt([]string{"-h"}, &stdout, &stderr, t.TempDir(), nil)
-		if !errors.Is(err, flag.ErrHelp) {
-			t.Fatalf("error = %v, want flag.ErrHelp", err)
-		}
-		if want := "Usage: metabol init"; !strings.Contains(stderr.String(), want) {
-			t.Errorf("stderr missing %q:\n%s", want, stderr.String())
-		}
-	})
-
-	t.Run("unexpected argument", func(t *testing.T) {
-		var stdout, stderr bytes.Buffer
-		err := runInitAt([]string{"extra"}, &stdout, &stderr, t.TempDir(), nil)
-		if err == nil || !strings.Contains(err.Error(), "unexpected arguments") {
-			t.Fatalf("error = %v, want unexpected-arguments error", err)
-		}
-	})
+	tests := []struct {
+		name       string
+		args       []string
+		wantErr    error
+		wantError  string
+		wantStderr string
+	}{
+		{
+			name:       "help",
+			args:       []string{"-h"},
+			wantErr:    flag.ErrHelp,
+			wantStderr: "Usage: metabol init",
+		},
+		{
+			name:      "unexpected argument",
+			args:      []string{"extra"},
+			wantError: "unexpected arguments",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			err := runInitAt(tt.args, &stdout, &stderr, t.TempDir(), nil)
+			if tt.wantErr != nil && !errors.Is(err, tt.wantErr) {
+				t.Fatalf("error = %v, want %v", err, tt.wantErr)
+			}
+			if tt.wantError != "" && (err == nil || !strings.Contains(err.Error(), tt.wantError)) {
+				t.Fatalf("error = %v, want containing %q", err, tt.wantError)
+			}
+			if tt.wantStderr != "" {
+				assertContains(t, stderr.String(), tt.wantStderr)
+			}
+		})
+	}
 }
 
 func TestRunDispatchesInitBeforeConfigLoading(t *testing.T) {
 	t.Parallel()
-	var stdout, stderr bytes.Buffer
-	err := run(
+	result := runCLIForTest(
+		t,
 		t.Context(),
 		[]string{"init", "extra"},
-		&stdout,
-		&stderr,
 		nil,
-		func(string) (string, bool) { return "", false },
+		nil,
 		&recordingPipeline{},
 	)
-	if err == nil || !strings.Contains(err.Error(), "unexpected arguments") {
-		t.Fatalf("error = %v, want init argument error", err)
+	if result.err == nil || !strings.Contains(result.err.Error(), "unexpected arguments") {
+		t.Fatalf("error = %v, want init argument error", result.err)
 	}
 }
 
 func TestHelpMentionsInitSubcommand(t *testing.T) {
 	t.Parallel()
-	var stdout, stderr bytes.Buffer
-	err := run(
+	result := runCLIForTest(
+		t,
 		t.Context(),
 		[]string{"-h"},
-		&stdout,
-		&stderr,
 		nil,
-		func(string) (string, bool) { return "", false },
+		nil,
 		&recordingPipeline{},
 	)
-	if !errors.Is(err, flag.ErrHelp) {
-		t.Fatalf("error = %v, want flag.ErrHelp", err)
+	if !errors.Is(result.err, flag.ErrHelp) {
+		t.Fatalf("error = %v, want flag.ErrHelp", result.err)
 	}
-	if want := "init    Create a sample metabol.yaml"; !strings.Contains(stderr.String(), want) {
-		t.Errorf("stderr missing %q:\n%s", want, stderr.String())
+	if want := "init    Create a sample metabol.yaml"; !strings.Contains(result.stderr, want) {
+		t.Errorf("stderr missing %q:\n%s", want, result.stderr)
 	}
 }

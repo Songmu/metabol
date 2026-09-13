@@ -118,7 +118,7 @@ func TestConfigValidate(t *testing.T) {
 	}
 }
 
-func TestValidateArticleURLSchemes(t *testing.T) {
+func TestValidateArticleURLSyntax(t *testing.T) {
 	tests := []struct {
 		name    string
 		rawURL  string
@@ -132,34 +132,6 @@ func TestValidateArticleURLSchemes(t *testing.T) {
 		{name: "mixed-case HTTPS", rawURL: "hTtPs://example.com/item"},
 		{name: "FTP", rawURL: "FTP://example.com/item", wantErr: "must use http or https"},
 		{name: "mailto", rawURL: "MaIlTo:person@example.com", wantErr: "must use http or https"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateArticleURL(tt.rawURL)
-			if tt.wantErr == "" {
-				if err != nil {
-					t.Fatalf("ValidateArticleURL(%q) error = %v", tt.rawURL, err)
-				}
-				return
-			}
-			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
-				t.Fatalf(
-					"ValidateArticleURL(%q) error = %v, want containing %q",
-					tt.rawURL,
-					err,
-					tt.wantErr,
-				)
-			}
-		})
-	}
-}
-
-func TestValidateArticleURLAuthorities(t *testing.T) {
-	tests := []struct {
-		name    string
-		rawURL  string
-		wantErr string
-	}{
 		{name: "DNS name", rawURL: "http://example.com/feed"},
 		{name: "DNS name with port", rawURL: "https://example.com:8443/feed"},
 		{name: "IPv4", rawURL: "http://192.0.2.1/feed"},
@@ -246,17 +218,9 @@ func TestValidateArticleURLRedactsUserinfoFromEveryErrorPath(t *testing.T) {
 				t.Fatal("ValidateArticleURL error = nil")
 			}
 			message := err.Error()
-			if !strings.Contains(message, tt.wantError) {
-				t.Errorf("error %q does not contain %q", message, tt.wantError)
-			}
-			if !strings.Contains(message, tt.wantContext) {
-				t.Errorf("error %q does not contain safe URL context %q", message, tt.wantContext)
-			}
-			for _, credential := range []string{"alice", "swordfish"} {
-				if strings.Contains(message, credential) {
-					t.Errorf("error %q contains credential %q", message, credential)
-				}
-			}
+			assertContains(t, message, tt.wantError)
+			assertContains(t, message, tt.wantContext)
+			assertNotContains(t, message, "alice", "swordfish")
 		})
 	}
 }
@@ -271,16 +235,9 @@ func TestValidateArticleURLRedactsUserinfoWithUppercaseInvalidScheme(t *testing.
 		t.Fatal("ValidateArticleURL error = nil")
 	}
 	message := err.Error()
-	for _, want := range []string{"must use http or https", "ftp://example.com/item"} {
-		if !strings.Contains(message, want) {
-			t.Errorf("error %q does not contain %q", message, want)
-		}
-	}
-	for _, credential := range []string{username, password} {
-		if strings.Contains(message, credential) {
-			t.Errorf("error %q contains credential %q", message, credential)
-		}
-	}
+	assertContains(t, message, "must use http or https")
+	assertContains(t, message, "ftp://example.com/item")
+	assertNotContains(t, message, username, password)
 }
 
 func TestParseDailyTime(t *testing.T) {

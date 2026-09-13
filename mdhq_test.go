@@ -128,7 +128,6 @@ func TestMDHQGetAlwaysPassesResolvedAssetsFlag(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -199,25 +198,13 @@ func TestMDHQGetAssetsFlagOverridesDisabledMDHQConfig(t *testing.T) {
 	t.Setenv("NO_PROXY", "127.0.0.1,localhost")
 	t.Setenv("no_proxy", "127.0.0.1,localhost")
 
+	articleHTML := readFixture(t, "mdhq", "assets.html")
 	var imageRequests atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/article":
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			fmt.Fprintf(w, `<!doctype html>
-<html>
-<head>
-<title>Assets override fixture</title>
-<meta property="og:image" content="%s/image.png">
-</head>
-<body>
-<article>
-<h1>Assets override fixture</h1>
-<p>This local page verifies that the explicit positive assets flag overrides disabled mdhq configuration.</p>
-<img src="%s/image.png" alt="fixture">
-</article>
-</body>
-</html>`, serverURL(r), serverURL(r))
+			fmt.Fprintf(w, string(articleHTML), serverURL(r), serverURL(r))
 		case "/image.png":
 			imageRequests.Add(1)
 			w.Header().Set("Content-Type", "image/png")
@@ -351,7 +338,6 @@ func TestMDHQGetRejectsInvalidOrMultipleResults(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			runner := &fakeCommandRunner{
