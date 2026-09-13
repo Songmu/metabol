@@ -340,6 +340,7 @@ func LoadResolvedConfig(cli CLIValues, lookupEnv LookupEnvFunc) (*ResolvedConfig
 
 // ResolveConfig applies CLI > THRESH_* > YAML values. Callers must provide root
 // through one of these sources because this entry point has no path fallback.
+// Assets and update default to false, and timezone defaults to the local timezone.
 func ResolveConfig(cli CLIValues, config *Config, lookupEnv LookupEnvFunc) (*ResolvedConfig, error) {
 	return resolveConfig(cli, config, lookupEnv, "")
 }

@@ -612,7 +612,10 @@ func TestLoadResolvedConfigDefaultsRootToConfigDirectory(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			configYAML := "root: " + tt.root + "\nwindow:\n  daily: \"07:00\"\nsources:\n  - https://example.com/feed\n"
+			configYAML := "window:\n  daily: \"07:00\"\nsources:\n  - https://example.com/feed\n"
+			if tt.root != "" {
+				configYAML = "root: " + tt.root + "\n" + configYAML
+			}
 			if err := os.WriteFile(path, []byte(configYAML), 0o600); err != nil {
 				t.Fatal(err)
 			}
