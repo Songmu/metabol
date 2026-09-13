@@ -14,7 +14,7 @@ mv "$manifest_base" "$manifest"
   echo "count=0"
 } >> "$GITHUB_OUTPUT"
 
-sh "$GITHUB_ACTION_PATH/install.sh" -b "$thresh_bin"
+sh "$GITHUB_ACTION_PATH/install.sh" -b "$thresh_bin" latest
 cp "$GITHUB_ACTION_PATH/package.json" "$GITHUB_ACTION_PATH/package-lock.json" \
   "$mdhq_prefix/"
 npm ci --prefix "$mdhq_prefix" --omit=dev
