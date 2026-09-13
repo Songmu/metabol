@@ -101,11 +101,15 @@ runs:
           fi
           printf '{"private":true,"dependencies":{"@songmu/mdhq":"%s"}}\n' \
             "$MDHQ_VERSION_INPUT" > "$mdhq_prefix/package.json"
-          npm install --prefix "$mdhq_prefix" --package-lock-only --ignore-scripts \
-            --omit=dev
+          npm install --prefix "$mdhq_prefix" --package-lock-only --ignore-scripts
         else
-          cp "$GITHUB_ACTION_PATH/package.json" "$GITHUB_ACTION_PATH/package-lock.json" \
-            "$mdhq_prefix/"
+          mdhq_package_json="$GITHUB_ACTION_PATH/package.json"
+          mdhq_package_lock="$GITHUB_ACTION_PATH/package-lock.json"
+          if [[ ! -f "$mdhq_package_json" || ! -f "$mdhq_package_lock" ]]; then
+            echo "::error::package.json and package-lock.json are required to install mdhq"
+            exit 1
+          fi
+          cp "$mdhq_package_json" "$mdhq_package_lock" "$mdhq_prefix/"
         fi
         npm ci --prefix "$mdhq_prefix" --omit=dev
         export PATH="$thresh_bin:$mdhq_prefix/node_modules/.bin:$PATH"
