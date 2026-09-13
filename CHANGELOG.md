@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.0.2](https://github.com/Songmu/metabol/compare/v0.0.1...v0.0.2) - 2026-09-13
+
+- fix test for version flag by @Songmu in https://github.com/Songmu/metabol/pull/23
+- Fix GitHub Actions lint violations by @Songmu in https://github.com/Songmu/metabol/pull/25
+- Use ghr GitHub Action for releases by @Songmu in https://github.com/Songmu/metabol/pull/26
+
 ## [v0.0.1](https://github.com/Songmu/metabol/commits/v0.0.1) - 2026-09-13
 
 - Bump actions/checkout from 4 to 7 by @dependabot[bot] in https://github.com/Songmu/metabol/pull/3
