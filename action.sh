@@ -36,13 +36,27 @@ npm install --global --prefix "$mdhq_prefix" \
 export PATH="$thresh_bin:$mdhq_prefix/bin:$mdhq_prefix:$PATH"
 
 args=()
-[[ -n "$CONFIG_INPUT" ]] && args+=(--config "$CONFIG_INPUT")
-[[ -n "$ROOT_INPUT" ]] && args+=(--root "$ROOT_INPUT")
-[[ -n "$ASSETS_INPUT" ]] && args+=(--assets="$ASSETS_INPUT")
-[[ -n "$UPDATE_INPUT" ]] && args+=(--update="$UPDATE_INPUT")
-[[ -n "$TIMEZONE_INPUT" ]] && args+=(--timezone "$TIMEZONE_INPUT")
-[[ -n "$AT_INPUT" ]] && args+=(--at "$AT_INPUT")
-[[ -n "$WINDOW_COUNT_INPUT" ]] && args+=(--window-count "$WINDOW_COUNT_INPUT")
+if [[ -n "$CONFIG_INPUT" ]]; then
+  args+=(--config "$CONFIG_INPUT")
+fi
+if [[ -n "$ROOT_INPUT" ]]; then
+  args+=(--root "$ROOT_INPUT")
+fi
+if [[ -n "$ASSETS_INPUT" ]]; then
+  args+=(--assets="$ASSETS_INPUT")
+fi
+if [[ -n "$UPDATE_INPUT" ]]; then
+  args+=(--update="$UPDATE_INPUT")
+fi
+if [[ -n "$TIMEZONE_INPUT" ]]; then
+  args+=(--timezone "$TIMEZONE_INPUT")
+fi
+if [[ -n "$AT_INPUT" ]]; then
+  args+=(--at "$AT_INPUT")
+fi
+if [[ -n "$WINDOW_COUNT_INPUT" ]]; then
+  args+=(--window-count "$WINDOW_COUNT_INPUT")
+fi
 
 set +e
 thresh "${args[@]}" | tee "$manifest"
