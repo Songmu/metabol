@@ -184,12 +184,9 @@ calculation errors fail before article processing.
 
 ## GitHub Action
 
-**Prerequisite:** The runner must provide Node.js 22.19.0 or later because the
-locked `@songmu/mdhq` dependency graph currently requires it.
-
 The repository includes a composite action that installs `metabol` and an
-isolated, lockfile-pinned `@songmu/mdhq`, then captures stdout as a JSONL
-manifest:
+isolated, lockfile-pinned `@songmu/mdhq`, provisions Node.js 24.21.0, and then
+captures stdout as a JSONL manifest:
 
 ```yaml
 jobs:
