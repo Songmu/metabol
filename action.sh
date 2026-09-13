@@ -59,8 +59,13 @@ if [[ -n "$WINDOW_COUNT_INPUT" ]]; then
 fi
 
 set +e
-thresh "${args[@]}" | tee "$manifest"
-statuses=("${PIPESTATUS[@]}")
+if ((${#args[@]})); then
+  thresh "${args[@]}" | tee "$manifest"
+  statuses=("${PIPESTATUS[@]}")
+else
+  thresh | tee "$manifest"
+  statuses=("${PIPESTATUS[@]}")
+fi
 set -e
 
 status="${statuses[0]}"
