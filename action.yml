@@ -60,7 +60,7 @@ runs:
 
         cd "$GITHUB_WORKSPACE"
         thresh_bin="$(mktemp -d)"
-        mdhq_prefix="$(mktemp -d)"
+        mdhq_prefix="$(mktemp -d "${RUNNER_TEMP%/}/mdhq.XXXXXX")"
         trap 'rm -rf "$thresh_bin" "$mdhq_prefix"' EXIT
 
         manifest_base="$(mktemp "${RUNNER_TEMP%/}/thresh-manifest.XXXXXX")"
@@ -94,6 +94,10 @@ runs:
           sh -s -- -b "$thresh_bin" "$thresh_version" 2>&1
 
         mkdir -p "$mdhq_prefix"
+        if [[ -z "$mdhq_prefix" || "$mdhq_prefix" != "${RUNNER_TEMP%/}/"* ]]; then
+          echo "::error::failed to create a safe temporary directory for mdhq"
+          exit 1
+        fi
         rm -rf "$mdhq_prefix/package.json" "$mdhq_prefix/package-lock.json" \
           "$mdhq_prefix/node_modules"
         if [[ -n "$MDHQ_VERSION_INPUT" ]]; then

@@ -213,7 +213,9 @@ Inputs are `version`, `mdhq-version`, `config`, `root`, `assets`, `update`,
 semantic-version action ref (including prerelease or build metadata), or to the
 latest release for a branch, commit SHA, or moving-major ref. `mdhq-version`
 defaults to the version locked in `package-lock.json`; set it to an exact
-semantic version only when overriding the bundled lockfile.
+semantic version only when overriding the bundled lockfile. Overrides resolve
+package metadata at runtime to generate a temporary lockfile before `npm ci`,
+so they depend on npm registry availability.
 Optional CLI inputs are omitted when empty, so configuration and
 environment-variable precedence remains intact. Explicit `false` values for
 `assets` and `update` are forwarded to the CLI.
