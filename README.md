@@ -98,7 +98,8 @@ generated configuration is:
 
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Songmu/metabol/main/schema.yaml
-timezone: Asia/Tokyo
+
+# timezone: Asia/Tokyo # Optional, but recommended.
 
 window:
   daily: "07:00"
