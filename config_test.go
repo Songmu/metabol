@@ -584,21 +584,44 @@ func TestLoadResolvedConfigDefaultsRootToConfigDirectory(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := filepath.Join(configDir, "thresh.yaml")
-	configYAML := "window:\n  daily: \"07:00\"\nsources:\n  - https://example.com/feed\n"
-	if err := os.WriteFile(path, []byte(configYAML), 0o600); err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		name     string
+		root     string
+		env      map[string]string
+		wantRoot string
+	}{
+		{
+			name:     "config directory",
+			env:      map[string]string{"MDHQ_ROOT": "mdhq-root"},
+			wantRoot: configDir,
+		},
+		{name: "yaml", root: "yaml-root", wantRoot: "yaml-root"},
+		{
+			name:     "environment over yaml",
+			root:     "yaml-root",
+			env:      map[string]string{"THRESH_ROOT": "env-root"},
+			wantRoot: "env-root",
+		},
 	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			configYAML := "root: " + tt.root + "\nwindow:\n  daily: \"07:00\"\nsources:\n  - https://example.com/feed\n"
+			if err := os.WriteFile(path, []byte(configYAML), 0o600); err != nil {
+				t.Fatal(err)
+			}
 
-	var cli CLIValues
-	if err := cli.Config.Set(path); err != nil {
-		t.Fatal(err)
-	}
-	resolved, err := LoadResolvedConfig(cli, lookup(map[string]string{"MDHQ_ROOT": "mdhq-root"}))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resolved.Root != configDir {
-		t.Fatalf("root = %q, want %q", resolved.Root, configDir)
+			var cli CLIValues
+			if err := cli.Config.Set(path); err != nil {
+				t.Fatal(err)
+			}
+			resolved, err := LoadResolvedConfig(cli, lookup(tt.env))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if resolved.Root != tt.wantRoot {
+				t.Fatalf("root = %q, want %q", resolved.Root, tt.wantRoot)
+			}
+		})
 	}
 }
 

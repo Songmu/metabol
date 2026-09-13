@@ -335,7 +335,7 @@ func LoadResolvedConfig(cli CLIValues, lookupEnv LookupEnvFunc) (*ResolvedConfig
 	return resolved, nil
 }
 
-// ResolveConfig applies CLI > THRESH_* > YAML values.
+// ResolveConfig applies CLI > THRESH_* > YAML values and requires a root value.
 func ResolveConfig(cli CLIValues, config *Config, lookupEnv LookupEnvFunc) (*ResolvedConfig, error) {
 	return resolveConfig(cli, config, lookupEnv, "")
 }
