@@ -3,7 +3,7 @@ set -euo pipefail
 
 cd "$GITHUB_WORKSPACE"
 thresh_bin="$(mktemp -d)"
-mdhq_prefix="$(mktemp -d)"
+mdhq_prefix="$(mktemp -d "${RUNNER_TEMP%/}/mdhq.XXXXXX")"
 trap 'rm -rf "$thresh_bin" "$mdhq_prefix"' EXIT
 
 manifest_base="$(mktemp "${RUNNER_TEMP%/}/thresh-manifest.XXXXXX")"
@@ -14,14 +14,19 @@ mv "$manifest_base" "$manifest"
   echo "count=0"
 } >> "$GITHUB_OUTPUT"
 
+is_exact_semver() {
+  local value="$1"
+  local semver_core='(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)'
+  local semver_identifier='(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)'
+  local semver_prerelease="(-${semver_identifier}(\.${semver_identifier})*)?"
+  local semver_build='(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?'
+  [[ "$value" =~ ^${semver_core}${semver_prerelease}${semver_build}$ ]]
+}
+
 action_ref="${ACTION_REF:-main}"
 thresh_version="$THRESH_VERSION_INPUT"
 if [[ -z "$thresh_version" ]]; then
-  semver_core='(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)'
-  semver_identifier='(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)'
-  semver_prerelease="(-${semver_identifier}(\.${semver_identifier})*)?"
-  semver_build='(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?'
-  if [[ "$action_ref" =~ ^v${semver_core}${semver_prerelease}${semver_build}$ ]]; then
+  if [[ "$action_ref" == v* ]] && is_exact_semver "${action_ref#v}"; then
     thresh_version="$action_ref"
   else
     thresh_version="latest"
@@ -31,9 +36,31 @@ curl -sfL --retry 3 \
   "https://raw.githubusercontent.com/Songmu/thresh/${action_ref}/install.sh" |
   sh -s -- -b "$thresh_bin" "$thresh_version" 2>&1
 
-npm install --global --prefix "$mdhq_prefix" \
-  "@songmu/mdhq@${MDHQ_VERSION_INPUT}"
-export PATH="$thresh_bin:$mdhq_prefix/bin:$mdhq_prefix:$PATH"
+if [[ -z "$mdhq_prefix" || "$mdhq_prefix" != "${RUNNER_TEMP%/}/"* ]]; then
+  echo "::error::failed to create a safe temporary directory for mdhq"
+  exit 1
+fi
+rm -rf "$mdhq_prefix/package.json" "$mdhq_prefix/package-lock.json" \
+  "$mdhq_prefix/node_modules"
+if [[ -n "$MDHQ_VERSION_INPUT" ]]; then
+  if ! is_exact_semver "$MDHQ_VERSION_INPUT"; then
+    echo "::error::mdhq-version must be an exact semantic version"
+    exit 1
+  fi
+  printf '{"private":true,"dependencies":{"@songmu/mdhq":"%s"}}\n' \
+    "$MDHQ_VERSION_INPUT" > "$mdhq_prefix/package.json"
+  npm install --prefix "$mdhq_prefix" --package-lock-only --ignore-scripts
+else
+  mdhq_package_json="$GITHUB_ACTION_PATH/package.json"
+  mdhq_package_lock="$GITHUB_ACTION_PATH/package-lock.json"
+  if [[ ! -f "$mdhq_package_json" || ! -f "$mdhq_package_lock" ]]; then
+    echo "::error::package.json and package-lock.json are required to install mdhq; verify the action version or ref"
+    exit 1
+  fi
+  cp "$mdhq_package_json" "$mdhq_package_lock" "$mdhq_prefix/"
+fi
+npm ci --prefix "$mdhq_prefix" --omit=dev
+export PATH="$thresh_bin:$mdhq_prefix/node_modules/.bin:$PATH"
 
 args=()
 if [[ -n "${CONFIG_INPUT:-}" ]]; then

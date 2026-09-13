@@ -7,9 +7,9 @@ inputs:
     required: false
     default: "v0.0.0"
   mdhq-version:
-    description: Version of @songmu/mdhq to install; default 0.0.5 requires Node.js 22 or later
+    description: Optional @songmu/mdhq version override; leave empty to use the bundled package-lock.json version
     required: false
-    default: 0.0.5
+    default: ""
   config:
     description: Path to the thresh configuration file
     required: false
