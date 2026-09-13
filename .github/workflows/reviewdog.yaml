@@ -46,3 +46,15 @@ jobs:
       - uses: reviewdog/action-actionlint@d290e336d5a743810aef4404f757dc862276d2ae # v1.73.4
         with:
           reporter: github-pr-review
+  shellcheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: reviewdog/action-shellcheck@0722bbdb0d47f04c1b53b8734d2422ac63a45ec6 # v1.32.1
+        with:
+          reporter: github-pr-review
+          fail_level: error
+          pattern: action.sh
