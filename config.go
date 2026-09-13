@@ -335,11 +335,12 @@ func LoadResolvedConfig(cli CLIValues, lookupEnv LookupEnvFunc) (*ResolvedConfig
 	return resolved, nil
 }
 
-// ResolveConfig applies CLI > THRESH_* > YAML > downstream/default fallbacks.
+// ResolveConfig applies CLI > THRESH_* > YAML values.
 func ResolveConfig(cli CLIValues, config *Config, lookupEnv LookupEnvFunc) (*ResolvedConfig, error) {
 	return resolveConfig(cli, config, lookupEnv, "")
 }
 
+// resolveConfig uses rootFallback when no CLI, environment, or YAML root is set.
 func resolveConfig(cli CLIValues, config *Config, lookupEnv LookupEnvFunc, rootFallback string) (*ResolvedConfig, error) {
 	if config == nil {
 		return nil, errors.New("config must not be nil")
@@ -356,7 +357,7 @@ func resolveConfig(cli CLIValues, config *Config, lookupEnv LookupEnvFunc, rootF
 		root = rootFallback
 	}
 	if root == "" {
-		return nil, errors.New("root is required (set --root, THRESH_ROOT, or root)")
+		return nil, errors.New("root is required (set --root, THRESH_ROOT, or the root configuration key)")
 	}
 
 	assets, err := resolveBool(cli.Assets, "THRESH_ASSETS", config.Assets, false, lookupEnv)
