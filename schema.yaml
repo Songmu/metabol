@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+
+"$schema": https://json-schema.org/draft/2020-12/schema
+title: Thresh Configuration Schema
+description: Configuration for the thresh feed orchestrator.
+type: object
+required:
+  - window
+  - sources
+properties:
+  root:
+    type: string
+    minLength: 1
+    description: |
+      Directory where mdhq writes Markdown files. This may be omitted when
+      THRESH_ROOT or MDHQ_ROOT supplies the value.
+  assets:
+    type: boolean
+    default: false
+    description: Download article assets.
+  update:
+    type: boolean
+    default: false
+    description: Re-evaluate existing Markdown files.
+  timezone:
+    type: string
+    minLength: 1
+    examples:
+      - Asia/Tokyo
+      - UTC
+    description: |
+      IANA timezone used to calculate processing windows. The local timezone is
+      used when this property is omitted.
+  window:
+    type: object
+    required:
+      - daily
+    properties:
+      daily:
+        type: string
+        pattern: "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+        examples:
+          - "07:00"
+        description: Local-time boundary for each daily processing window, in HH:MM format.
+      count:
+        type: integer
+        minimum: 1
+        default: 1
+        description: Number of consecutive processing windows.
+  sources:
+    type: array
+    minItems: 1
+    description: Feed sources to process.
+    items:
+      oneOf:
+        - type: string
+          format: uri
+          pattern: "^https?://"
+          description: HTTP or HTTPS feed URL.
+        - type: object
+          required:
+            - url
+          properties:
+            url:
+              type: string
+              format: uri
+              pattern: "^https?://"
+              description: HTTP or HTTPS feed URL.
+            name:
+              type: string
+              description: Optional source name reserved for source metadata.
