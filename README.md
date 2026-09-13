@@ -228,8 +228,9 @@ jobs:
 ```
 
 Inputs are `config`, `root`, `assets`, `update`, `timezone`, `at`, and
-`window-count`. The action installs the latest `metabol` release and the
-`@songmu/mdhq` version locked in its bundled `package-lock.json`.
+`window-count`. The action installs the `metabol` release matching the action
+version and the `@songmu/mdhq` version locked in its bundled
+`package-lock.json`.
 Optional CLI inputs are omitted when empty, so configuration and
 environment-variable precedence remains intact. Explicit `false` values for
 `assets` and `update` are forwarded to the CLI.

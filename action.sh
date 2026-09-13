@@ -2,6 +2,7 @@
 set -euo pipefail
 
 cd "$GITHUB_WORKSPACE"
+metabol_version="v0.0.0"
 metabol_bin="$(mktemp -d)"
 mdhq_prefix="$(mktemp -d "${RUNNER_TEMP%/}/mdhq.XXXXXX")"
 trap 'rm -rf "$metabol_bin" "$mdhq_prefix"' EXIT
@@ -14,7 +15,7 @@ mv "$manifest_base" "$manifest"
   echo "count=0"
 } >> "$GITHUB_OUTPUT"
 
-sh "$GITHUB_ACTION_PATH/install.sh" -b "$metabol_bin" latest
+sh "$GITHUB_ACTION_PATH/install.sh" -b "$metabol_bin" "$metabol_version"
 cp "$GITHUB_ACTION_PATH/package.json" "$GITHUB_ACTION_PATH/package-lock.json" \
   "$mdhq_prefix/"
 npm ci --prefix "$mdhq_prefix" --omit=dev
