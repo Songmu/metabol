@@ -36,25 +36,25 @@ npm install --global --prefix "$mdhq_prefix" \
 export PATH="$thresh_bin:$mdhq_prefix/bin:$mdhq_prefix:$PATH"
 
 args=()
-if [[ -n "$CONFIG_INPUT" ]]; then
+if [[ -n "${CONFIG_INPUT:-}" ]]; then
   args+=(--config "$CONFIG_INPUT")
 fi
-if [[ -n "$ROOT_INPUT" ]]; then
+if [[ -n "${ROOT_INPUT:-}" ]]; then
   args+=(--root "$ROOT_INPUT")
 fi
-if [[ -n "$ASSETS_INPUT" ]]; then
+if [[ -n "${ASSETS_INPUT:-}" ]]; then
   args+=(--assets="$ASSETS_INPUT")
 fi
-if [[ -n "$UPDATE_INPUT" ]]; then
+if [[ -n "${UPDATE_INPUT:-}" ]]; then
   args+=(--update="$UPDATE_INPUT")
 fi
-if [[ -n "$TIMEZONE_INPUT" ]]; then
+if [[ -n "${TIMEZONE_INPUT:-}" ]]; then
   args+=(--timezone "$TIMEZONE_INPUT")
 fi
-if [[ -n "$AT_INPUT" ]]; then
+if [[ -n "${AT_INPUT:-}" ]]; then
   args+=(--at "$AT_INPUT")
 fi
-if [[ -n "$WINDOW_COUNT_INPUT" ]]; then
+if [[ -n "${WINDOW_COUNT_INPUT:-}" ]]; then
   args+=(--window-count "$WINDOW_COUNT_INPUT")
 fi
 
