@@ -40,8 +40,8 @@ separately and ensure it is on `PATH`. For normal local use, install it globally
 $ npm install --global @songmu/mdhq
 ```
 
-To use the exact `mdhq` version supported by `metabol`, install the
-lockfile-pinned dependencies from the repository root and add the local binary
+To use the `mdhq` version pinned and tested for this repository checkout,
+install the dependencies from the repository root and add the local binary
 directory to `PATH`:
 
 ```console
@@ -53,23 +53,18 @@ The locked dependency graph requires Node.js 22.19.0 or later.
 
 ## Configuration
 
-By default, `metabol` reads `metabol.yaml` from the current directory:
+By default, `metabol` reads `metabol.yaml` from the current directory. A
+minimal recommended configuration is:
 
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Songmu/metabol/main/schema.yaml
+timezone: Asia/Tokyo # Optional, but recommended
+
 window:
   daily: "07:00"
-  count: 1 # Optional, default is 1
 
 sources:
   - https://example.com/feed.xml
-  - url: https://example.com/feed
-    name: example tech
-
-root: path/to/articles # Optional, default is the directory containing the configuration file
-assets: false # Optional, default is false
-update: false # Optional, default is false
-timezone: Asia/Tokyo # Optional, default is the local timezone
 ```
 
 A source may be a URL scalar or an object. These forms are equivalent:
@@ -84,7 +79,13 @@ sources:
   - url: https://example.com/feed
 ```
 
-The object form currently also accepts `name` as reserved source metadata.
+The object form also accepts an optional `name` reserved for future source
+metadata. It currently does not affect processing or output.
+
+Feed fetching is provided by [`rssnip`](https://github.com/Songmu/rssnip) and
+supports RSS 2.0, Atom 1.0, RDF/RSS 1.0, and JSON Feed 1.0 and 1.1. Blog or site
+URLs are also accepted for feed discovery, but direct feed URLs are preferred.
+
 `window.daily` defines a local-time boundary, not a schedule. Every processing
 window is a half-open interval, `[start, end)`, calculated in `timezone`.
 Use `metabol` to run with the default config, or `metabol --config path/to/file`
@@ -108,8 +109,7 @@ The available settings are:
 | `update` | `--update` | `METABOL_UPDATE` | Boolean | `false` | Re-evaluate existing Markdown |
 | `timezone` | `--timezone` | `METABOL_TIMEZONE` | IANA timezone string | Local timezone | Timezone used to calculate processing windows |
 | - | `--config` | `METABOL_CONFIG` | Path string | `metabol.yaml` | Configuration file to read |
-| - | `--at` | `METABOL_AT` | RFC 3339 timestamp or `YYYY-MM-DD` | Last completed window | Select the logical window containing the specified date or time |
-| - | `--version` | - | Boolean flag | `false` | Print the installed `metabol` version |
+| - | `--at` | `METABOL_AT` | RFC 3339 timestamp or `YYYY-MM-DD` | Not set | Select the window containing the specified date or time; when omitted, the most recently completed window is used |
 
 Relative `root` values in the configuration file are resolved from that file's
 directory. Relative values passed with `--root` or `METABOL_ROOT` are resolved
@@ -118,6 +118,10 @@ explicitly passes either `--assets` or `--no-assets` to `mdhq`, so the resolved
 `metabol` setting overrides any value in mdhq configuration.
 
 ## Time windows
+
+Window boundaries are based on local calendar time in the configured timezone.
+A window that crosses a daylight-saving transition may therefore span 23 or 25
+hours, while remaining contiguous and non-overlapping.
 
 By default, `metabol` selects the most recently completed window unless `--at`
 is specified. For example, with a daily boundary of `07:00` in `Asia/Tokyo`, a
@@ -208,7 +212,7 @@ jobs:
           timezone: Asia/Tokyo
           at: "2026-09-11"
       - uses: actions/upload-artifact@v7
-        if: ${{ !cancelled() && fromJSON(steps.metabol.outputs.count) > 0 }}
+        if: ${{ !cancelled() && steps.metabol.outputs.count > 0 }}
         with:
           name: metabol-manifest
           path: ${{ steps.metabol.outputs.manifest }}
@@ -238,7 +242,9 @@ runs. They therefore remain available with an empty manifest and count `0` if
 setup fails, or with a partial manifest and its nonempty-line count if `metabol`
 exits nonzero. Runtime failures preserve the original `metabol` or `tee` status.
 The example uploads the manifest only when at least one article record was
-emitted, including when `metabol` exits nonzero after partially succeeding.
+emitted. The `!cancelled()` status check allows this step to run when `metabol`
+exits nonzero after partially succeeding, while still skipping it when the
+workflow is cancelled.
 
 ## Guarantees and non-goals
 
@@ -247,8 +253,8 @@ logical window without an execution-history database. Re-running a window is
 designed to be idempotent through `mdhq`, but the contents of remote feeds and
 articles are outside `metabol`'s reproducibility guarantee.
 
-`metabol` is not a scheduler, state database, fetched-URL database, feed archive,
-or replacement for `mdhq`'s storage layout.
+`metabol` is not a scheduler, state database, fetched-URL database, raw feed
+archive, or replacement for `mdhq`'s storage layout.
 
 ## Author
 
