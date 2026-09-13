@@ -32,12 +32,14 @@ $ go install github.com/Songmu/thresh/cmd/thresh@latest
 ```
 
 **Prerequisite:** The supported `@songmu/mdhq` version is managed in
-`package.json` and `package-lock.json`; the current locked version, `0.0.5`,
-requires Node.js 22 or later. `thresh` invokes `mdhq` as an external command,
-so install it separately and ensure it is on `PATH`:
+`package.json` and `package-lock.json`; the locked version requires Node.js 22
+or later. `thresh` invokes `mdhq` as an external command, so install it
+separately and ensure it is on `PATH`. To use the repository-managed version
+during development:
 
 ```console
-$ npm install --global @songmu/mdhq@0.0.5
+$ npm ci
+$ export PATH="$PWD/node_modules/.bin:$PATH"
 ```
 
 ## Configuration
