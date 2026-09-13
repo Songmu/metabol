@@ -22,6 +22,9 @@ processed, making scheduled runs repeatable and safe to retry.
 ## Installation
 
 ```console
+# Install with Homebrew.
+$ brew install Songmu/tap/metabol
+
 # Install the latest version. (Install it into ./bin/ by default).
 $ curl -sfL https://raw.githubusercontent.com/Songmu/metabol/main/install.sh | sh -s
 
