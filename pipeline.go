@@ -88,19 +88,16 @@ func CollectFeeds(
 	)
 	seen := make(map[string]struct{})
 	for _, sourceURL := range sources {
-		if err := ctx.Err(); err != nil {
-			failures = append(failures, err)
+		if failure, canceled := contextFailure(ctx, nil); canceled {
+			failures = append(failures, failure)
 			break
 		}
 		items, err := fetcher.Fetch(ctx, sourceURL, since, until)
 		if err != nil {
-			ctxErr := ctx.Err()
 			failure := fmt.Errorf("fetch source %q: %w", sourceURL, err)
-			if ctxErr != nil && !errors.Is(failure, ctxErr) {
-				failure = fmt.Errorf("%w (%w)", failure, ctxErr)
-			}
+			failure, canceled := contextFailure(ctx, failure)
 			failures = append(failures, failure)
-			if ctxErr != nil {
+			if canceled {
 				break
 			}
 			continue
@@ -196,28 +193,25 @@ func (p *Pipeline) Run(
 		Update: request.Update,
 	}
 	for _, article := range urls {
-		if err := ctx.Err(); err != nil {
-			if !errors.Is(collectErr, err) {
-				failures = append(failures, err)
-				fmt.Fprintln(stderr, err)
+		if failure, canceled := contextFailure(ctx, nil); canceled {
+			if !errors.Is(collectErr, failure) {
+				failures = append(failures, failure)
+				fmt.Fprintln(stderr, failure)
 			}
 			break
 		}
 		result, err := p.MDHQ.Get(ctx, article.URL, options)
 		if err != nil {
-			ctxErr := ctx.Err()
 			failure := fmt.Errorf(
 				"process URL %q from source %q: %w",
 				article.URL,
 				article.SourceURL,
 				err,
 			)
-			if ctxErr != nil && !errors.Is(failure, ctxErr) {
-				failure = fmt.Errorf("%w (%w)", failure, ctxErr)
-			}
+			failure, canceled := contextFailure(ctx, failure)
 			failures = append(failures, failure)
 			fmt.Fprintln(stderr, failure)
-			if ctxErr != nil {
+			if canceled {
 				break
 			}
 			continue

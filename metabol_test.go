@@ -253,6 +253,21 @@ func (p *cancelingPipeline) Run(
 	return nil
 }
 
+type cancelingFailingPipeline struct {
+	cancel context.CancelFunc
+	err    error
+}
+
+func (p *cancelingFailingPipeline) Run(
+	_ context.Context,
+	_ PipelineRequest,
+	_, errStream io.Writer,
+) error {
+	fmt.Fprintln(errStream, p.err)
+	p.cancel()
+	return p.err
+}
+
 func TestRunChecksCancellationBeforeEachWindow(t *testing.T) {
 	configPath := writeTestConfig(t, `
 root: ./articles
@@ -283,6 +298,69 @@ sources:
 	if got, want := result.stderr, context.Canceled.Error()+"\n"; got != want {
 		t.Fatalf("stderr = %q, want %q", got, want)
 	}
+}
+
+func TestRunChecksCancellationAfterFinalWindow(t *testing.T) {
+	configPath := writeTestConfig(t, `
+root: ./articles
+timezone: UTC
+window:
+  daily: "07:00"
+sources:
+  - https://example.com/feed.xml
+`)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	pipeline := &cancelingPipeline{cancel: cancel}
+	result := runCLIForTest(
+		t,
+		ctx,
+		[]string{"--config", configPath},
+		func() time.Time { return time.Date(2026, 9, 12, 19, 0, 0, 0, time.UTC) },
+		nil,
+		pipeline,
+	)
+
+	if !errors.Is(result.err, context.Canceled) {
+		t.Fatalf("run error = %v, want context.Canceled", result.err)
+	}
+	if got, want := len(pipeline.requests), 1; got != want {
+		t.Fatalf("pipeline runs = %d, want %d", got, want)
+	}
+	if got, want := result.stderr, context.Canceled.Error()+"\n"; got != want {
+		t.Fatalf("stderr = %q, want %q", got, want)
+	}
+}
+
+func TestRunAddsCancellationToConcurrentPipelineFailure(t *testing.T) {
+	configPath := writeTestConfig(t, `
+root: ./articles
+timezone: UTC
+window:
+  daily: "07:00"
+sources:
+  - https://example.com/feed.xml
+`)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	failure := errors.New("pipeline failed")
+	result := runCLIForTest(
+		t,
+		ctx,
+		[]string{"--config", configPath},
+		func() time.Time { return time.Date(2026, 9, 12, 19, 0, 0, 0, time.UTC) },
+		nil,
+		&cancelingFailingPipeline{cancel: cancel, err: failure},
+	)
+
+	if !errors.Is(result.err, failure) {
+		t.Fatalf("run error = %v, want wrapping %v", result.err, failure)
+	}
+	if !errors.Is(result.err, context.Canceled) {
+		t.Fatalf("run error = %v, want context.Canceled", result.err)
+	}
+	assertCount(t, result.stderr, failure.Error(), 1)
+	assertCount(t, result.stderr, context.Canceled.Error(), 1)
 }
 
 func TestRunContinuesAfterWindowFailure(t *testing.T) {

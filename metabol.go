@@ -88,23 +88,30 @@ func run(
 	}
 	var failures []error
 	for _, window := range windows {
-		if err := ctx.Err(); err != nil {
-			fmt.Fprintln(errStream, err)
-			failures = append(failures, err)
+		if failure, canceled := contextFailure(ctx, nil); canceled {
+			if !errors.Is(errors.Join(failures...), failure) {
+				fmt.Fprintln(errStream, failure)
+				failures = append(failures, failure)
+			}
 			break
 		}
-		if err := pipeline.Run(ctx, PipelineRequest{
+		pipelineErr := pipeline.Run(ctx, PipelineRequest{
 			Sources: sources,
 			Since:   window.Start,
 			Until:   window.End,
 			Root:    config.Root,
 			Assets:  config.Assets,
 			Update:  config.Update,
-		}, outStream, errStream); err != nil {
-			failures = append(failures, err)
-			if ctx.Err() != nil {
-				break
+		}, outStream, errStream)
+		failure, canceled := contextFailure(ctx, pipelineErr)
+		if failure != nil {
+			failures = append(failures, failure)
+		}
+		if canceled {
+			if !errors.Is(pipelineErr, ctx.Err()) {
+				fmt.Fprintln(errStream, ctx.Err())
 			}
+			break
 		}
 	}
 	if err := errors.Join(failures...); err != nil {
