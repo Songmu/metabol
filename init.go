@@ -60,21 +60,9 @@ func runInitAt(
 		fmt.Fprintln(outStream, "Initialization canceled.")
 		return nil
 	}
-
-	file, err := os.OpenFile(configPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
-	if err != nil {
-		return fmt.Errorf("create %s: %w", DefaultConfigPath, err)
-	}
-	if _, err := file.Write(sampleConfig); err != nil {
-		_ = file.Close()
-		_ = os.Remove(configPath)
+	if err := os.WriteFile(configPath, sampleConfig, 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", DefaultConfigPath, err)
 	}
-	if err := file.Close(); err != nil {
-		_ = os.Remove(configPath)
-		return fmt.Errorf("close %s: %w", DefaultConfigPath, err)
-	}
-
 	fmt.Fprintf(outStream, "Created %s.\n\n", DefaultConfigPath)
 	fmt.Fprintln(outStream, "Next steps:")
 	fmt.Fprintf(outStream, "  1. Edit %s and replace the example source.\n", DefaultConfigPath)
