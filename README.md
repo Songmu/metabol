@@ -51,45 +51,23 @@ $ export PATH="$PWD/node_modules/.bin:$PATH"
 
 The locked dependency graph requires Node.js 22.19.0 or later.
 
-## Agent Skill
-
-The metabol binary includes an English [Agent Skill](https://agentskills.io/)
-that teaches compatible coding agents how to configure metabol, select
-deterministic processing windows, run backfills, and consume its JSON Lines
-output. The skill is managed through the bundled
-[skillsmith](https://github.com/Songmu/skillsmith) subcommand and is never
-installed automatically.
-
-```console
-# Inspect the skill bundled with this metabol release.
-$ metabol skills list
-
-# Install it for the current user under ~/.agents/skills.
-$ metabol skills install
-
-# Install it under the current repository's .agents/skills directory.
-$ metabol skills install --scope repo
-
-# Preview a change, check status, and apply an updated bundled version.
-$ metabol skills update --dry-run
-$ metabol skills status
-$ metabol skills update
-```
-
-Use `--prefix /path/to/skills` to choose a custom installation directory.
-`reinstall` replaces managed skills even when the recorded version matches,
-while `uninstall` removes managed copies. New skill content ships with new
-metabol releases; installing a newer binary does not modify the user's skill
-directory until `metabol skills update` or `reinstall` is run.
-
 ## Configuration
 
-By default, `metabol` reads `metabol.yaml` from the current directory. A
-minimal recommended configuration is:
+Create a starter configuration in the current directory:
+
+```console
+$ metabol init
+```
+
+If the directory is not empty, `metabol` asks for confirmation and defaults to
+not creating the file. It never overwrites an existing `metabol.yaml`.
+
+By default, `metabol` reads `metabol.yaml` from the current directory. An
+example configuration is:
 
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Songmu/metabol/main/schema.yaml
-timezone: Asia/Tokyo # Optional, but recommended
+timezone: Asia/Tokyo # Optional, but recommended.
 
 window:
   daily: "07:00"
@@ -276,6 +254,37 @@ The example uploads the manifest only when at least one article record was
 emitted. The `!cancelled()` status check allows this step to run when `metabol`
 exits nonzero after partially succeeding, while still skipping it when the
 workflow is canceled.
+
+## Agent Skill
+
+The metabol binary includes an English [Agent Skill](https://agentskills.io/)
+that teaches compatible coding agents how to configure metabol, select
+deterministic processing windows, run backfills, and consume its JSON Lines
+output. The skill is managed through the bundled
+[skillsmith](https://github.com/Songmu/skillsmith) subcommand and is never
+installed automatically.
+
+```console
+# Inspect the skill bundled with this metabol release.
+$ metabol skills list
+
+# Install it for the current user under ~/.agents/skills.
+$ metabol skills install
+
+# Install it under the current repository's .agents/skills directory.
+$ metabol skills install --scope repo
+
+# Preview a change, check status, and apply an updated bundled version.
+$ metabol skills update --dry-run
+$ metabol skills status
+$ metabol skills update
+```
+
+Use `--prefix /path/to/skills` to choose a custom installation directory.
+`reinstall` replaces managed skills even when the recorded version matches,
+while `uninstall` removes managed copies. New skill content ships with new
+metabol releases; installing a newer binary does not modify the user's skill
+directory until `metabol skills update` or `reinstall` is run.
 
 ## Guarantees and non-goals
 

@@ -29,8 +29,13 @@ func run(
 	lookupEnv LookupEnvFunc,
 	pipeline pipelineRunner,
 ) error {
-	if len(argv) > 0 && argv[0] == "skills" {
-		return runSkills(ctx, argv[1:], outStream, errStream)
+	if len(argv) > 0 {
+		switch argv[0] {
+		case "init":
+			return runInit(argv[1:], outStream, errStream)
+		case "skills":
+			return runSkills(ctx, argv[1:], outStream, errStream)
+		}
 	}
 
 	fs := flag.NewFlagSet(
@@ -38,7 +43,11 @@ func run(
 	fs.SetOutput(errStream)
 	fs.Usage = func() {
 		fmt.Fprintf(fs.Output(), "Usage: %s [options]\n", cmdName)
+		fmt.Fprintln(fs.Output(), "\nCommands:")
+		fmt.Fprintln(fs.Output(), "  init    Create a sample metabol.yaml")
+		fmt.Fprintln(fs.Output(), "  skills  Manage the bundled Agent Skill")
 		fmt.Fprintf(fs.Output(), "\nManage the bundled Agent Skill with '%s skills <command>'.\n", cmdName)
+		fmt.Fprintln(fs.Output())
 		fmt.Fprintln(fs.Output(), "Options:")
 		fs.PrintDefaults()
 	}
