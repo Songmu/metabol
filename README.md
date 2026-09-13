@@ -244,7 +244,7 @@ exits nonzero. Runtime failures preserve the original `metabol` or `tee` status.
 The example uploads the manifest only when at least one article record was
 emitted. The `!cancelled()` status check allows this step to run when `metabol`
 exits nonzero after partially succeeding, while still skipping it when the
-workflow is cancelled.
+workflow is canceled.
 
 ## Guarantees and non-goals
 
