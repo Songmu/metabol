@@ -212,8 +212,8 @@ Inputs are `version`, `mdhq-version`, `config`, `root`, `assets`, `update`,
 `timezone`, `at`, and `window-count`. `version` defaults to an exact
 semantic-version action ref (including prerelease or build metadata), or to the
 latest release for a branch, commit SHA, or moving-major ref. `mdhq-version`
-defaults to the version locked in `package-lock.json`; set it only to override
-the bundled lockfile.
+defaults to the version locked in `package-lock.json`; set it to an exact
+semantic version only when overriding the bundled lockfile.
 Optional CLI inputs are omitted when empty, so configuration and
 environment-variable precedence remains intact. Explicit `false` values for
 `assets` and `update` are forwarded to the CLI.
