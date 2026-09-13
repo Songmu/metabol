@@ -65,7 +65,7 @@ func runInitAt(
 	}
 	fmt.Fprintf(outStream, "Created %s.\n\n", DefaultConfigPath)
 	fmt.Fprintln(outStream, "Next steps:")
-	fmt.Fprintf(outStream, "  1. Edit %s and replace the example source.\n", DefaultConfigPath)
+	fmt.Fprintf(outStream, "  1. Edit %s and replace the example source list.\n", DefaultConfigPath)
 	fmt.Fprintln(outStream, "  2. Install mdhq if needed: npm install --global @songmu/mdhq")
 	fmt.Fprintf(outStream, "  3. Run %s.\n", cmdName)
 	return nil
