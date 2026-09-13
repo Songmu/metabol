@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Example</title>
+    <link>https://example.com/</link>
+    <description>Example feed</description>
+    <item>
+      <guid>included</guid>
+      <link>https://example.com/included</link>
+      <pubDate>Fri, 11 Sep 2026 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <guid>excluded</guid>
+      <link>https://example.com/excluded</link>
+      <pubDate>Thu, 10 Sep 2026 00:00:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>

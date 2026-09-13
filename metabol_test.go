@@ -1,14 +1,12 @@
 package metabol
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -49,30 +47,27 @@ func (m *integrationMDHQ) Get(
 }
 
 func TestRunVersionDoesNotRequireConfig(t *testing.T) {
-	var stdout, stderr bytes.Buffer
-	err := run(
+	result := runCLIForTest(
+		t,
 		context.Background(),
 		[]string{"--version"},
-		&stdout,
-		&stderr,
-		func() time.Time { return time.Time{} },
-		func(string) (string, bool) { return "", false },
+		nil,
+		nil,
 		&recordingPipeline{},
 	)
-	if err != nil {
-		t.Fatalf("run returned error: %v", err)
+	if result.err != nil {
+		t.Fatalf("run returned error: %v", result.err)
 	}
-	if got, want := stdout.String(), "metabol v0.0.0 (rev:HEAD)\n"; got != want {
+	if got, want := result.stdout, "metabol v0.0.0 (rev:HEAD)\n"; got != want {
 		t.Fatalf("stdout = %q, want %q", got, want)
 	}
-	if stderr.Len() != 0 {
-		t.Fatalf("stderr = %q, want empty", stderr.String())
+	if result.stderr != "" {
+		t.Fatalf("stderr = %q, want empty", result.stderr)
 	}
 }
 
 func TestRunResolvesConfigAndSelectsLastCompleteWindow(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "config.yaml")
-	err := os.WriteFile(configPath, []byte(`
+	configPath := writeTestConfig(t, `
 root: ./articles
 assets: true
 update: false
@@ -83,26 +78,21 @@ sources:
   - https://example.com/feed.xml
   - url: https://example.org/feed.xml
     name: example
-`), 0o600)
-	if err != nil {
-		t.Fatal(err)
-	}
+`)
 
 	pipeline := &recordingPipeline{}
-	var stdout, stderr bytes.Buffer
-	err = run(
+	result := runCLIForTest(
+		t,
 		context.Background(),
 		[]string{"--config", configPath, "--update"},
-		&stdout,
-		&stderr,
 		func() time.Time {
 			return time.Date(2026, 9, 12, 19, 0, 0, 0, time.FixedZone("JST", 9*60*60))
 		},
-		func(string) (string, bool) { return "", false },
+		nil,
 		pipeline,
 	)
-	if err != nil {
-		t.Fatalf("run returned error: %v", err)
+	if result.err != nil {
+		t.Fatalf("run returned error: %v", result.err)
 	}
 
 	if got, want := pipeline.request.Sources, []string{
@@ -131,31 +121,26 @@ sources:
 }
 
 func TestRunAtSelectsContainingWindow(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "config.yaml")
-	err := os.WriteFile(configPath, []byte(`
+	configPath := writeTestConfig(t, `
 root: ./articles
 timezone: Asia/Tokyo
 window:
   daily: "07:00"
 sources:
   - https://example.com/feed.xml
-`), 0o600)
-	if err != nil {
-		t.Fatal(err)
-	}
+`)
 
 	pipeline := &recordingPipeline{}
-	err = run(
+	result := runCLIForTest(
+		t,
 		context.Background(),
 		[]string{"--config", configPath, "--at", "2026-09-11T07:00:00+09:00"},
-		io.Discard,
-		io.Discard,
-		func() time.Time { return time.Time{} },
-		func(string) (string, bool) { return "", false },
+		nil,
+		nil,
 		pipeline,
 	)
-	if err != nil {
-		t.Fatalf("run returned error: %v", err)
+	if result.err != nil {
+		t.Fatalf("run returned error: %v", result.err)
 	}
 
 	jst, err := time.LoadLocation("Asia/Tokyo")
@@ -171,8 +156,7 @@ sources:
 }
 
 func TestRunProcessesMultipleWindowsOldestFirst(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "config.yaml")
-	err := os.WriteFile(configPath, []byte(`
+	configPath := writeTestConfig(t, `
 root: ./articles
 timezone: UTC
 window:
@@ -180,23 +164,19 @@ window:
   count: 2
 sources:
   - https://example.com/feed.xml
-`), 0o600)
-	if err != nil {
-		t.Fatal(err)
-	}
+`)
 
 	pipeline := &recordingPipeline{}
-	err = run(
+	result := runCLIForTest(
+		t,
 		context.Background(),
 		[]string{"--config", configPath, "--at", "2026-09-11T19:00:00Z", "--window-count", "3"},
-		io.Discard,
-		io.Discard,
-		func() time.Time { return time.Time{} },
-		func(string) (string, bool) { return "", false },
+		nil,
+		nil,
 		pipeline,
 	)
-	if err != nil {
-		t.Fatalf("run returned error: %v", err)
+	if result.err != nil {
+		t.Fatalf("run returned error: %v", result.err)
 	}
 	if got, want := len(pipeline.requests), 3; got != want {
 		t.Fatalf("pipeline runs = %d, want %d", got, want)
@@ -274,8 +254,7 @@ func (p *cancelingPipeline) Run(
 }
 
 func TestRunChecksCancellationBeforeEachWindow(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "config.yaml")
-	err := os.WriteFile(configPath, []byte(`
+	configPath := writeTestConfig(t, `
 root: ./articles
 timezone: UTC
 window:
@@ -283,37 +262,31 @@ window:
   count: 2
 sources:
   - https://example.com/feed.xml
-`), 0o600)
-	if err != nil {
-		t.Fatal(err)
-	}
+`)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	pipeline := &cancelingPipeline{cancel: cancel}
-	var stderr bytes.Buffer
-	err = run(
+	result := runCLIForTest(
+		t,
 		ctx,
 		[]string{"--config", configPath},
-		io.Discard,
-		&stderr,
 		func() time.Time { return time.Date(2026, 9, 12, 19, 0, 0, 0, time.UTC) },
-		func(string) (string, bool) { return "", false },
+		nil,
 		pipeline,
 	)
-	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("run error = %v, want context.Canceled", err)
+	if !errors.Is(result.err, context.Canceled) {
+		t.Fatalf("run error = %v, want context.Canceled", result.err)
 	}
 	if got, want := len(pipeline.requests), 1; got != want {
 		t.Fatalf("pipeline runs = %d, want %d", got, want)
 	}
-	if got, want := stderr.String(), context.Canceled.Error()+"\n"; got != want {
+	if got, want := result.stderr, context.Canceled.Error()+"\n"; got != want {
 		t.Fatalf("stderr = %q, want %q", got, want)
 	}
 }
 
 func TestRunContinuesAfterWindowFailure(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "config.yaml")
-	err := os.WriteFile(configPath, []byte(`
+	configPath := writeTestConfig(t, `
 root: ./articles
 timezone: UTC
 window:
@@ -321,24 +294,19 @@ window:
   count: 2
 sources:
   - https://example.com/feed.xml
-`), 0o600)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+`)
 	failure := errors.New("first window failed")
 	pipeline := &failFirstPipeline{err: failure}
-	err = run(
+	result := runCLIForTest(
+		t,
 		context.Background(),
 		[]string{"--config", configPath},
-		io.Discard,
-		io.Discard,
 		func() time.Time { return time.Date(2026, 9, 12, 19, 0, 0, 0, time.UTC) },
-		func(string) (string, bool) { return "", false },
+		nil,
 		pipeline,
 	)
-	if !errors.Is(err, failure) {
-		t.Fatalf("run error = %v, want wrapping %v", err, failure)
+	if !errors.Is(result.err, failure) {
+		t.Fatalf("run error = %v, want wrapping %v", result.err, failure)
 	}
 	if got, want := len(pipeline.requests), 2; got != want {
 		t.Fatalf("pipeline runs = %d, want %d", got, want)
@@ -346,111 +314,80 @@ sources:
 }
 
 func TestRunDoesNotRepeatAlreadyReportedFailures(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "config.yaml")
-	err := os.WriteFile(configPath, []byte(`
+	configPath := writeTestConfig(t, `
 root: ./articles
 timezone: UTC
 window:
   daily: "07:00"
 sources:
   - https://example.com/feed.xml
-`), 0o600)
-	if err != nil {
-		t.Fatal(err)
-	}
+`)
 
 	reported := errors.New(`fetch source "https://example.com/feed.xml": boom`)
-	var stdout, stderr bytes.Buffer
-	err = run(
+	result := runCLIForTest(
+		t,
 		context.Background(),
 		[]string{"--config", configPath},
-		&stdout,
-		&stderr,
 		func() time.Time { return time.Date(2026, 9, 12, 19, 0, 0, 0, time.UTC) },
-		func(string) (string, bool) { return "", false },
+		nil,
 		&failingPipeline{err: reported},
 	)
-	if err == nil {
+	if result.err == nil {
 		t.Fatal("run error = nil, want a non-nil error for a non-zero exit")
 	}
-	if !errors.Is(err, reported) {
-		t.Fatalf("run error %v does not wrap the pipeline failure", err)
+	if !errors.Is(result.err, reported) {
+		t.Fatalf("run error %v does not wrap the pipeline failure", result.err)
 	}
-	if strings.Contains(err.Error(), "boom") {
-		t.Fatalf("run error %q repeats details already written to stderr", err)
+	if strings.Contains(result.err.Error(), "boom") {
+		t.Fatalf("run error %q repeats details already written to stderr", result.err)
 	}
-	if got := strings.Count(stderr.String(), "boom"); got != 1 {
-		t.Fatalf("stderr reported the failure %d times, want 1: %q", got, stderr.String())
-	}
-	if stdout.Len() != 0 {
-		t.Fatalf("stdout = %q, want empty", stdout.String())
+	assertCount(t, result.stderr, "boom", 1)
+	if result.stdout != "" {
+		t.Fatalf("stdout = %q, want empty", result.stdout)
 	}
 }
 
 func TestRunEndToEndWithRSSnip(t *testing.T) {
-	feed := `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0">
-  <channel>
-    <title>Example</title>
-    <link>https://example.com/</link>
-    <description>Example feed</description>
-    <item>
-      <guid>included</guid>
-      <link>https://example.com/included</link>
-      <pubDate>Fri, 11 Sep 2026 00:00:00 GMT</pubDate>
-    </item>
-    <item>
-      <guid>excluded</guid>
-      <link>https://example.com/excluded</link>
-      <pubDate>Thu, 10 Sep 2026 00:00:00 GMT</pubDate>
-    </item>
-  </channel>
-</rss>`
+	feed := readFixture(t, "rss", "window-filter.xml")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/rss+xml")
-		fmt.Fprint(w, feed)
+		_, _ = w.Write(feed)
 	}))
 	defer server.Close()
 
-	configPath := filepath.Join(t.TempDir(), "config.yaml")
-	err := os.WriteFile(configPath, []byte(fmt.Sprintf(`
+	configPath := writeTestConfig(t, fmt.Sprintf(`
 root: %s
 timezone: Asia/Tokyo
 window:
   daily: "07:00"
 sources:
   - %s
-`, filepath.Join(t.TempDir(), "articles"), server.URL)), 0o600)
-	if err != nil {
-		t.Fatal(err)
-	}
+`, filepath.Join(t.TempDir(), "articles"), server.URL))
 
 	mdhq := &integrationMDHQ{}
 	pipeline := NewPipeline(RSSnipFetcher{}, mdhq)
-	var stdout, stderr bytes.Buffer
-	err = run(
+	result := runCLIForTest(
+		t,
 		context.Background(),
 		[]string{
 			"--config", configPath,
 			"--at", "2026-09-11T08:00:00+09:00",
 		},
-		&stdout,
-		&stderr,
-		func() time.Time { return time.Time{} },
-		func(string) (string, bool) { return "", false },
+		nil,
+		nil,
 		pipeline,
 	)
-	if err != nil {
-		t.Fatalf("run returned error: %v\nstderr: %s", err, stderr.String())
+	if result.err != nil {
+		t.Fatalf("run returned error: %v\nstderr: %s", result.err, result.stderr)
 	}
 	if got, want := mdhq.urls, []string{"https://example.com/included"}; strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("processed URLs = %v, want %v", got, want)
 	}
 	const want = `{"requestedUrl":"https://example.com/included","sourceUrl":"https://example.com/included","path":"/articles/item.md","status":"saved"}` + "\n"
-	if got := stdout.String(); got != want {
+	if got := result.stdout; got != want {
 		t.Fatalf("stdout = %q, want %q", got, want)
 	}
-	if stderr.Len() != 0 {
-		t.Fatalf("stderr = %q, want empty", stderr.String())
+	if result.stderr != "" {
+		t.Fatalf("stderr = %q, want empty", result.stderr)
 	}
 }

@@ -146,63 +146,69 @@ func TestDailyWindowContaining(t *testing.T) {
 	}
 }
 
-func TestDailyWindowNewYorkOverlapUsesEarlierInstant(t *testing.T) {
-	location := mustLoadLocation(t, "America/New_York")
-	engine, err := NewDailyWindow(location, "01:30")
-	if err != nil {
-		t.Fatal(err)
+func TestDailyWindowContainingAcrossTimezoneTransitions(t *testing.T) {
+	tests := []struct {
+		name      string
+		timezone  string
+		daily     string
+		at        string
+		wantStart string
+		wantEnd   string
+	}{
+		{
+			name:      "New York overlap first occurrence",
+			timezone:  "America/New_York",
+			daily:     "01:30",
+			at:        "2026-11-01T05:30:00Z",
+			wantStart: "2026-11-01T05:30:00Z",
+			wantEnd:   "2026-11-02T06:30:00Z",
+		},
+		{
+			name:      "New York overlap second occurrence",
+			timezone:  "America/New_York",
+			daily:     "01:30",
+			at:        "2026-11-01T06:30:00Z",
+			wantStart: "2026-11-01T05:30:00Z",
+			wantEnd:   "2026-11-02T06:30:00Z",
+		},
+		{
+			name:      "New York before shifted gap boundary",
+			timezone:  "America/New_York",
+			daily:     "02:30",
+			at:        "2026-03-08T07:29:59Z",
+			wantStart: "2026-03-07T07:30:00Z",
+			wantEnd:   "2026-03-08T07:30:00Z",
+		},
+		{
+			name:      "New York shifted gap boundary",
+			timezone:  "America/New_York",
+			daily:     "02:30",
+			at:        "2026-03-08T07:30:00Z",
+			wantStart: "2026-03-08T07:30:00Z",
+			wantEnd:   "2026-03-09T06:30:00Z",
+		},
+		{
+			name:      "Apia duplicate resolved boundary",
+			timezone:  "Pacific/Apia",
+			daily:     "00:00",
+			at:        "2011-12-30T10:00:00Z",
+			wantStart: "2011-12-30T10:00:00Z",
+			wantEnd:   "2011-12-31T10:00:00Z",
+		},
 	}
-
-	firstOccurrence := mustParseTime(t, "2026-11-01T05:30:00Z")
-	got, err := engine.Containing(firstOccurrence)
-	if err != nil {
-		t.Fatal(err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			engine, err := NewDailyWindow(mustLoadLocation(t, tt.timezone), tt.daily)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := engine.Containing(mustParseTime(t, tt.at))
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertWindow(t, got, tt.wantStart, tt.wantEnd)
+		})
 	}
-	assertWindow(t, got, "2026-11-01T05:30:00Z", "2026-11-02T06:30:00Z")
-
-	secondOccurrence := mustParseTime(t, "2026-11-01T06:30:00Z")
-	got, err = engine.Containing(secondOccurrence)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assertWindow(t, got, "2026-11-01T05:30:00Z", "2026-11-02T06:30:00Z")
-}
-
-func TestDailyWindowNewYorkGapShiftsByTransition(t *testing.T) {
-	location := mustLoadLocation(t, "America/New_York")
-	engine, err := NewDailyWindow(location, "02:30")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	beforeShiftedBoundary := mustParseTime(t, "2026-03-08T07:29:59Z")
-	got, err := engine.Containing(beforeShiftedBoundary)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assertWindow(t, got, "2026-03-07T07:30:00Z", "2026-03-08T07:30:00Z")
-
-	shiftedBoundary := mustParseTime(t, "2026-03-08T07:30:00Z")
-	got, err = engine.Containing(shiftedBoundary)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assertWindow(t, got, "2026-03-08T07:30:00Z", "2026-03-09T06:30:00Z")
-}
-
-func TestDailyWindowCollapsesDuplicateResolvedBoundaries(t *testing.T) {
-	location := mustLoadLocation(t, "Pacific/Apia")
-	engine, err := NewDailyWindow(location, "00:00")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	at := mustParseTime(t, "2011-12-30T10:00:00Z")
-	got, err := engine.Containing(at)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assertWindow(t, got, "2011-12-30T10:00:00Z", "2011-12-31T10:00:00Z")
 }
 
 func TestParseWindowAt(t *testing.T) {

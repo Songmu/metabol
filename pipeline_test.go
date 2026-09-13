@@ -14,26 +14,14 @@ import (
 )
 
 func TestRSSnipFetcherNormalizesOnlySourceURLScheme(t *testing.T) {
-	const feed = `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0">
-  <channel>
-    <title>Example</title>
-    <link>https://example.com/</link>
-    <description>Example feed</description>
-    <item>
-      <guid>item</guid>
-      <link>https://example.com/item</link>
-      <pubDate>Fri, 11 Sep 2026 00:00:00 GMT</pubDate>
-    </item>
-  </channel>
-</rss>`
+	feed := readFixture(t, "rss", "source-url.xml")
 	const requestURI = "/Feed.XML?Token=AbC%2FDef"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.RequestURI != requestURI {
 			t.Errorf("request URI = %q, want %q", r.RequestURI, requestURI)
 		}
 		w.Header().Set("Content-Type", "application/rss+xml")
-		fmt.Fprint(w, feed)
+		_, _ = w.Write(feed)
 	}))
 	defer server.Close()
 
@@ -409,24 +397,15 @@ func TestCollectFeedsRejectsNonHTTPArticleURLs(t *testing.T) {
 		if strings.HasSuffix(message, "must not contain userinfo") {
 			continue
 		}
-		if !strings.Contains(err.Error(), message) {
-			t.Errorf("CollectFeeds error %q does not contain %q", err, message)
-		}
+		assertContains(t, err.Error(), message)
 	}
-	if !strings.Contains(
+	assertContains(
+		t,
 		err.Error(),
 		`skip item from source "feed-a": url "https://example.com/secret" must not contain userinfo`,
-	) {
-		t.Errorf("CollectFeeds error %q does not retain safe URL context", err)
-	}
-	for _, credential := range []string{credentialUsername, credentialPassword} {
-		if strings.Contains(err.Error(), credential) {
-			t.Errorf("CollectFeeds error %q contains credential %q", err, credential)
-		}
-	}
-	if got := strings.Count(err.Error(), "--root=/tmp/evil"); got != 1 {
-		t.Errorf("duplicate invalid URL reported %d times, want 1", got)
-	}
+	)
+	assertNotContains(t, err.Error(), credentialUsername, credentialPassword)
+	assertCount(t, err.Error(), "--root=/tmp/evil", 1)
 }
 
 func TestMDHQGetterContractRejectsNonHTTPURL(t *testing.T) {
@@ -516,9 +495,7 @@ func TestCollectFeedsPreservesFetchFailureOnCancellation(t *testing.T) {
 			if !errors.Is(err, tt.fetchErr) {
 				t.Fatalf("CollectFeeds error = %v, want fetch error %v", err, tt.fetchErr)
 			}
-			if got, want := strings.Count(err.Error(), tt.ctxErr.Error()), 1; got != want {
-				t.Fatalf("CollectFeeds error = %q, context count = %d, want %d", err, got, want)
-			}
+			assertCount(t, err.Error(), tt.ctxErr.Error(), 1)
 			want := []CollectedURL{{URL: "https://example.com/1", SourceURL: "feed-a"}}
 			if !reflect.DeepEqual(got, want) {
 				t.Fatalf("CollectFeeds URLs = %#v, want %#v", got, want)
@@ -637,12 +614,8 @@ func TestPipelineRunReportsFetchFailureAndCancellationOnce(t *testing.T) {
 	if !errors.Is(err, fetchErr) {
 		t.Fatalf("Pipeline.Run error = %v, want fetch error %v", err, fetchErr)
 	}
-	if got, want := strings.Count(stderr.String(), context.Canceled.Error()), 1; got != want {
-		t.Fatalf("stderr = %q, cancellation count = %d, want %d", stderr.String(), got, want)
-	}
-	if got, want := strings.Count(stderr.String(), fetchErr.Error()), 1; got != want {
-		t.Fatalf("stderr = %q, fetch failure count = %d, want %d", stderr.String(), got, want)
-	}
+	assertCount(t, stderr.String(), context.Canceled.Error(), 1)
+	assertCount(t, stderr.String(), fetchErr.Error(), 1)
 	if len(mdhq.calls) != 0 {
 		t.Fatalf("mdhq calls = %#v, want none", mdhq.calls)
 	}
@@ -709,12 +682,8 @@ func TestPipelineRunPreservesMDHQFailureOnCancellation(t *testing.T) {
 			if !strings.Contains(err.Error(), "mdhq process killed") {
 				t.Fatalf("Pipeline.Run error = %v, want process failure", err)
 			}
-			if got, want := strings.Count(stderr.String(), "context canceled"), 1; got != want {
-				t.Fatalf("stderr = %q, cancellation count = %d, want %d", stderr.String(), got, want)
-			}
-			if got, want := strings.Count(stderr.String(), "mdhq process killed"), 1; got != want {
-				t.Fatalf("stderr = %q, process failure count = %d, want %d", stderr.String(), got, want)
-			}
+			assertCount(t, stderr.String(), "context canceled", 1)
+			assertCount(t, stderr.String(), "mdhq process killed", 1)
 			if got, want := len(mdhq.calls), 1; got != want {
 				t.Fatalf("mdhq calls = %d, want %d", got, want)
 			}
