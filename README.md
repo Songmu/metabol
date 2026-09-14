@@ -206,7 +206,7 @@ calculation errors fail before article processing.
 
 The repository includes a composite action that installs `metabol` and an
 isolated, lockfile-pinned `@songmu/mdhq`, provisions Node.js 24.21.0, and then
-captures the JSONL written to stdout in a manifest file:
+captures the JSONL processing results written to stdout in a file:
 
 ```yaml
 jobs:
@@ -226,8 +226,8 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() && steps.metabol.outputs.count > 0 }}
         with:
-          name: metabol-manifest
-          path: ${{ steps.metabol.outputs.manifest }}
+          name: metabol-results
+          path: ${{ steps.metabol.outputs.results }}
 ```
 
 Inputs are `config`, `root`, `assets`, `update`, `timezone`, `at`, and
@@ -242,19 +242,19 @@ The action exposes:
 
 | Output | Description |
 | --- | --- |
-| `manifest` | Absolute path to the captured JSONL manifest |
-| `count` | Number of nonempty lines in the manifest |
+| `results` | Absolute path to the captured JSONL processing results |
+| `count` | Number of result records |
 
-The file referenced by `manifest` is a capture of the CLI stdout documented
-above. The `manifest` output value is the file path, not the JSONL content
+The file referenced by `results` is a capture of the CLI stdout documented
+above. The `results` output value is the file path, not the JSONL content
 itself. `count` therefore normally equals the number of successfully emitted
 article records.
 
 The outputs are initialized before installation and updated after `metabol`
-runs. They therefore remain available with an empty manifest and count `0` if
-setup fails, or with a partial manifest and its nonempty-line count if `metabol`
+runs. They therefore remain available with an empty results file and count `0`
+if setup fails, or with a partial results file and its record count if `metabol`
 exits nonzero. Runtime failures preserve the original `metabol` or `tee` status.
-The example uploads the manifest only when at least one article record was
+The example uploads the results only when at least one article record was
 emitted. The `!cancelled()` status check allows this step to run when `metabol`
 exits nonzero after partially succeeding, while still skipping it when the
 workflow is canceled.

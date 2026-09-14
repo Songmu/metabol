@@ -7,11 +7,11 @@ metabol_bin="$(mktemp -d)"
 mdhq_prefix="$(mktemp -d "${RUNNER_TEMP%/}/mdhq.XXXXXX")"
 trap 'rm -rf "$metabol_bin" "$mdhq_prefix"' EXIT
 
-manifest_base="$(mktemp "${RUNNER_TEMP%/}/metabol-manifest.XXXXXX")"
-manifest="${manifest_base}.jsonl"
-mv "$manifest_base" "$manifest"
+results_base="$(mktemp "${RUNNER_TEMP%/}/metabol-results.XXXXXX")"
+results="${results_base}.jsonl"
+mv "$results_base" "$results"
 {
-  echo "manifest=$manifest"
+  echo "results=$results"
   echo "count=0"
 } >> "$GITHUB_OUTPUT"
 
@@ -46,10 +46,10 @@ fi
 
 set +e
 if ((${#args[@]})); then
-  metabol "${args[@]}" | tee "$manifest"
+  metabol "${args[@]}" | tee "$results"
   statuses=("${PIPESTATUS[@]}")
 else
-  metabol | tee "$manifest"
+  metabol | tee "$results"
   statuses=("${PIPESTATUS[@]}")
 fi
 set -e
@@ -58,10 +58,10 @@ status="${statuses[0]}"
 if [[ "$status" -eq 0 && "${statuses[1]}" -ne 0 ]]; then
   status="${statuses[1]}"
 fi
-count="$(awk 'NF { count++ } END { print count + 0 }' "$manifest")"
+count="$(awk 'NF { count++ } END { print count + 0 }' "$results")"
 
 {
-  echo "manifest=$manifest"
+  echo "results=$results"
   echo "count=$count"
 } >> "$GITHUB_OUTPUT"
 

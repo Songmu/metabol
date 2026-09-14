@@ -493,7 +493,7 @@ stdout については、後続タスクが扱いやすい機械可読形式と�
 ```text
 stdout
   ↓
-article metadata / manifest
+article processing results
 
 filesystem
   ↓
