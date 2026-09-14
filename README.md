@@ -137,18 +137,18 @@ hours, while remaining contiguous and non-overlapping.
 
 By default, `metabol` selects the most recently completed window unless `--at`
 is specified. For example, with a daily boundary of `07:00` in `Asia/Tokyo`, a
-run at `2026-09-11 19:00 JST` processes:
+run at `2026-09-13 19:00 JST` processes:
 
 ```text
-[2026-09-10 07:00, 2026-09-11 07:00)
+[2026-09-12 07:00, 2026-09-13 07:00)
 ```
 
-Runs at `08:00`, `14:30`, or `23:00` on September 11 therefore select the same
+Runs at `08:00`, `14:30`, or `23:00` on September 13 therefore select the same
 logical window.
 
 `catchup`, `--catchup`, or `METABOL_CATCHUP` removes the upper bound from the
 newest selected window. With the same boundary and execution time, catchup
-collects from `2026-09-10 07:00 JST` through the latest items currently
+collects from `2026-09-12 07:00 JST` through the latest items currently
 available from each feed:
 
 ```console
@@ -163,8 +163,8 @@ is a one-shot fetch; it does not keep metabol running to watch for new items.
 than the last complete window:
 
 ```console
-$ metabol --at 2026-09-11
-$ metabol --at 2026-09-11T10:30:00+09:00
+$ metabol --at 2026-09-13
+$ metabol --at 2026-09-13T10:30:00+09:00
 ```
 
 RFC 3339 timestamps and `YYYY-MM-DD` dates are accepted. A date without a time
@@ -183,10 +183,10 @@ earlier windows are added by walking backward and all windows are processed
 from oldest to newest:
 
 ```console
-$ metabol --at 2026-09-11 --window-count 3
+$ metabol --at 2026-09-13 --window-count 3
 ```
 
-This processes the window containing September 11 and the two windows
+This processes the window containing September 13 and the two windows
 immediately before it. The count must be between `1` and `366`.
 
 ## Output and errors
@@ -227,6 +227,18 @@ example saves articles under `articles`, commits and pushes any changes, and
 uploads the processing results:
 
 ```yaml
+name: Collect feeds
+
+on:
+  schedule:
+    - cron: "15 7 * * *"
+      timezone: Asia/Tokyo
+  workflow_dispatch:
+    inputs:
+      at:
+        description: Date selecting the window to process (YYYY-MM-DD)
+        type: string
+
 jobs:
   collect:
     runs-on: ubuntu-latest
@@ -241,6 +253,7 @@ jobs:
           root: articles
           timezone: Asia/Tokyo
           catchup: true
+          at: ${{ inputs.at }}
       - name: Commit and push articles
         if: ${{ !cancelled() && steps.metabol.outputs.count > 0 }}
         run: |
@@ -272,6 +285,17 @@ The action exposes:
 `results` points to the JSONL results file, and `count` is the number of
 successfully processed articles. Successful articles and results remain
 available even if another article fails.
+
+Scheduled runs leave `inputs.at` empty, so the action omits `at` and processes
+the most recently completed window. The workflow execution time does not need
+to exactly match `window.daily`; a delayed or retried scheduled run selects the
+same logical window.
+
+When manually starting the workflow, optionally enter a date in `YYYY-MM-DD`
+format, such as `2026-09-13`, for `at`. This selects the window containing that
+date. If omitted, the most recently completed window is processed. In this
+example, `catchup` remains enabled for scheduled runs, but an explicitly
+supplied `at` takes precedence for manual backfills.
 
 ## Agent Skill
 
