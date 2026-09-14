@@ -1,5 +1,12 @@
 # Changelog
 
+## [v0.0.3](https://github.com/Songmu/metabol/compare/v0.0.2...v0.0.3) - 2026-09-14
+
+- Add catchup window option by @Songmu in https://github.com/Songmu/metabol/pull/28
+- Rename manifest output to results by @Songmu in https://github.com/Songmu/metabol/pull/29
+- update rssnip to 0.0.2 by @Songmu in https://github.com/Songmu/metabol/pull/30
+- Improve README GitHub Actions example by @Songmu in https://github.com/Songmu/metabol/pull/31
+
 ## [v0.0.2](https://github.com/Songmu/metabol/compare/v0.0.1...v0.0.2) - 2026-09-13
 
 - fix test for version flag by @Songmu in https://github.com/Songmu/metabol/pull/23
