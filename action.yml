@@ -14,6 +14,9 @@ inputs:
   update:
     description: Whether to update existing Markdown
     required: false
+  catchup:
+    description: Whether to extend the latest completed window to the present
+    required: false
   timezone:
     description: IANA timezone used to calculate the processing window
     required: false
@@ -46,6 +49,7 @@ runs:
         ROOT_INPUT: ${{ inputs.root }}
         ASSETS_INPUT: ${{ inputs.assets }}
         UPDATE_INPUT: ${{ inputs.update }}
+        CATCHUP_INPUT: ${{ inputs.catchup }}
         TIMEZONE_INPUT: ${{ inputs.timezone }}
         AT_INPUT: ${{ inputs.at }}
         WINDOW_COUNT_INPUT: ${{ inputs.window-count }}

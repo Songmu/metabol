@@ -17,9 +17,10 @@ type FeedItem struct {
 	URL string
 }
 
-// FeedFetcher fetches feed items for a half-open time window.
+// FeedFetcher fetches feed items since a lower bound and, when non-nil, before
+// an upper bound.
 type FeedFetcher interface {
-	Fetch(ctx context.Context, sourceURL string, since, until time.Time) ([]FeedItem, error)
+	Fetch(ctx context.Context, sourceURL string, since time.Time, until *time.Time) ([]FeedItem, error)
 }
 
 // RSSnipFetcher fetches feeds with the rssnip library.
@@ -29,17 +30,21 @@ type RSSnipFetcher struct{}
 func (RSSnipFetcher) Fetch(
 	ctx context.Context,
 	sourceURL string,
-	since, until time.Time,
+	since time.Time,
+	until *time.Time,
 ) ([]FeedItem, error) {
 	normalizedSourceURL, err := normalizeSourceURLScheme(sourceURL)
 	if err != nil {
 		return nil, err
 	}
+	options := []rssnip.Option{rssnip.WithSince(since)}
+	if until != nil {
+		options = append(options, rssnip.WithUntil(*until))
+	}
 	items, err := rssnip.Fetch(
 		ctx,
 		normalizedSourceURL,
-		rssnip.WithSince(since),
-		rssnip.WithUntil(until),
+		options...,
 	)
 	if err != nil {
 		return nil, err
@@ -76,7 +81,8 @@ func CollectFeeds(
 	ctx context.Context,
 	fetcher FeedFetcher,
 	sources []string,
-	since, until time.Time,
+	since time.Time,
+	until *time.Time,
 ) ([]CollectedURL, error) {
 	if fetcher == nil {
 		return nil, errors.New("feed fetcher is required")
@@ -131,11 +137,12 @@ type MDHQGetter interface {
 	Get(ctx context.Context, url string, options MDHQOptions) (MDHQResult, error)
 }
 
-// PipelineRequest describes one feed collection and mdhq run.
+// PipelineRequest describes one feed collection and mdhq run. A nil Until
+// leaves the feed collection upper bound open.
 type PipelineRequest struct {
 	Sources []string
 	Since   time.Time
-	Until   time.Time
+	Until   *time.Time
 	Root    string
 	Assets  bool
 	Update  bool

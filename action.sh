@@ -34,6 +34,9 @@ fi
 if [[ -n "${UPDATE_INPUT:-}" ]]; then
   args+=(--update="$UPDATE_INPUT")
 fi
+if [[ -n "${CATCHUP_INPUT:-}" ]]; then
+  args+=(--catchup="$CATCHUP_INPUT")
+fi
 if [[ -n "${TIMEZONE_INPUT:-}" ]]; then
   args+=(--timezone "$TIMEZONE_INPUT")
 fi

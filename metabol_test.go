@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -188,6 +189,71 @@ sources:
 	assertPipelineWindow(t, pipeline.requests[2], "2026-09-11T07:00:00Z", "2026-09-12T07:00:00Z")
 }
 
+func TestRunCatchupOmitsUntilForNewestWindow(t *testing.T) {
+	configPath := writeTestConfig(t, `
+root: ./articles
+timezone: UTC
+window:
+  daily: "07:00"
+  count: 3
+sources:
+  - https://example.com/feed.xml
+`)
+
+	pipeline := &recordingPipeline{}
+	result := runCLIForTest(
+		t,
+		context.Background(),
+		[]string{"--config", configPath, "--catchup"},
+		func() time.Time { return time.Date(2026, 9, 12, 19, 0, 0, 0, time.UTC) },
+		nil,
+		pipeline,
+	)
+	if result.err != nil {
+		t.Fatalf("run returned error: %v", result.err)
+	}
+	if got, want := len(pipeline.requests), 3; got != want {
+		t.Fatalf("pipeline runs = %d, want %d", got, want)
+	}
+	assertPipelineWindow(t, pipeline.requests[0], "2026-09-09T07:00:00Z", "2026-09-10T07:00:00Z")
+	assertPipelineWindow(t, pipeline.requests[1], "2026-09-10T07:00:00Z", "2026-09-11T07:00:00Z")
+	if got, want := pipeline.requests[2].Since, time.Date(2026, 9, 11, 7, 0, 0, 0, time.UTC); !got.Equal(want) {
+		t.Fatalf("since = %s, want %s", got, want)
+	}
+	if pipeline.requests[2].Until != nil {
+		t.Fatalf("until = %s, want nil", pipeline.requests[2].Until)
+	}
+}
+
+func TestRunAtOverridesCatchupWithWarning(t *testing.T) {
+	configPath := writeTestConfig(t, `
+root: ./articles
+catchup: true
+timezone: UTC
+window:
+  daily: "07:00"
+sources:
+  - https://example.com/feed.xml
+`)
+
+	pipeline := &recordingPipeline{}
+	result := runCLIForTest(
+		t,
+		context.Background(),
+		[]string{"--config", configPath, "--at", "2026-09-11T19:00:00Z"},
+		nil,
+		nil,
+		pipeline,
+	)
+	if result.err != nil {
+		t.Fatalf("run returned error: %v", result.err)
+	}
+	assertPipelineWindow(t, pipeline.request, "2026-09-11T07:00:00Z", "2026-09-12T07:00:00Z")
+	if got, want := result.stderr, "warning: at is set; catchup is ignored\n"; got != want {
+		t.Fatalf("stderr = %q, want %q", got, want)
+	}
+}
+
 func assertPipelineWindow(t *testing.T, request PipelineRequest, wantSince, wantUntil string) {
 	t.Helper()
 	since, err := time.Parse(time.RFC3339, wantSince)
@@ -197,6 +263,9 @@ func assertPipelineWindow(t *testing.T, request PipelineRequest, wantSince, want
 	until, err := time.Parse(time.RFC3339, wantUntil)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if request.Until == nil {
+		t.Fatalf("pipeline window = [%s, nil), want [%s, %s)", request.Since, since, until)
 	}
 	if !request.Since.Equal(since) || !request.Until.Equal(until) {
 		t.Fatalf(
@@ -469,5 +538,45 @@ sources:
 	}
 	if result.stderr != "" {
 		t.Fatalf("stderr = %q, want empty", result.stderr)
+	}
+}
+
+func TestRunCatchupEndToEndWithRSSnip(t *testing.T) {
+	feed := readFixture(t, "rss", "window-filter.xml")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/rss+xml")
+		_, _ = w.Write(feed)
+	}))
+	defer server.Close()
+
+	configPath := writeTestConfig(t, fmt.Sprintf(`
+root: %s
+timezone: Asia/Tokyo
+window:
+  daily: "07:00"
+sources:
+  - %s
+`, filepath.Join(t.TempDir(), "articles"), server.URL))
+
+	mdhq := &integrationMDHQ{}
+	result := runCLIForTest(
+		t,
+		context.Background(),
+		[]string{"--config", configPath, "--catchup"},
+		func() time.Time {
+			return time.Date(2026, 9, 12, 19, 0, 0, 0, time.FixedZone("JST", 9*60*60))
+		},
+		nil,
+		NewPipeline(RSSnipFetcher{}, mdhq),
+	)
+	if result.err != nil {
+		t.Fatalf("run returned error: %v\nstderr: %s", result.err, result.stderr)
+	}
+	want := []string{
+		"https://example.com/ongoing",
+		"https://example.com/included",
+	}
+	if !reflect.DeepEqual(mdhq.urls, want) {
+		t.Fatalf("processed URLs = %v, want %v", mdhq.urls, want)
 	}
 }

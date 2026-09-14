@@ -275,6 +275,7 @@ func TestCLIValuesRegisterFlags(t *testing.T) {
 		"--root=",
 		"--assets=false",
 		"--update",
+		"--catchup",
 		"--timezone=Asia/Tokyo",
 		"--at=2026-09-11",
 		"--window-count=3",
@@ -293,6 +294,9 @@ func TestCLIValuesRegisterFlags(t *testing.T) {
 	}
 	if value, set := values.Update.Get(); !value || !set {
 		t.Fatalf("update = %v, %v", value, set)
+	}
+	if value, set := values.Catchup.Get(); !value || !set {
+		t.Fatalf("catchup = %v, %v", value, set)
 	}
 	if value, set := values.WindowCount.Get(); value != 3 || !set {
 		t.Fatalf("window count = %v, %v", value, set)
@@ -481,6 +485,78 @@ func TestResolveConfigPrecedence(t *testing.T) {
 	}
 }
 
+func TestResolveConfigCatchupPrecedence(t *testing.T) {
+	tests := []struct {
+		name   string
+		config *Config
+		env    map[string]string
+		setCLI func(*CLIValues)
+		want   bool
+	}{
+		{name: "default", config: validConfig()},
+		{
+			name: "yaml",
+			config: func() *Config {
+				config := validConfig()
+				config.Catchup = boolPointer(true)
+				return config
+			}(),
+			want: true,
+		},
+		{
+			name: "environment over yaml",
+			config: func() *Config {
+				config := validConfig()
+				config.Catchup = boolPointer(true)
+				return config
+			}(),
+			env:  map[string]string{"METABOL_CATCHUP": "false"},
+			want: false,
+		},
+		{
+			name:   "cli over environment",
+			config: validConfig(),
+			env:    map[string]string{"METABOL_CATCHUP": "true"},
+			setCLI: func(values *CLIValues) {
+				_ = values.Catchup.Set("false")
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var cli CLIValues
+			if tt.setCLI != nil {
+				tt.setCLI(&cli)
+			}
+			got, err := ResolveConfig(cli, tt.config, lookup(tt.env))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.Catchup != tt.want {
+				t.Fatalf("catchup = %v, want %v", got.Catchup, tt.want)
+			}
+		})
+	}
+}
+
+func TestResolveConfigRetainsCatchupWithAt(t *testing.T) {
+	got, err := ResolveConfig(
+		CLIValues{},
+		validConfig(),
+		lookup(map[string]string{
+			"METABOL_AT":      "2026-09-11",
+			"METABOL_CATCHUP": "true",
+		}),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.At == nil || !got.Catchup {
+		t.Fatalf("at/catchup = %v/%v, want both set", got.At, got.Catchup)
+	}
+}
+
 func TestResolveConfigIgnoresLegacyEnvironment(t *testing.T) {
 	config := validConfig()
 	legacyPrefix := "TH" + "RESH_"
@@ -529,6 +605,7 @@ func TestResolveConfigErrors(t *testing.T) {
 		},
 		{name: "invalid assets environment", config: validConfig(), env: map[string]string{"METABOL_ASSETS": "sometimes"}, wantErr: "METABOL_ASSETS"},
 		{name: "invalid update environment", config: validConfig(), env: map[string]string{"METABOL_UPDATE": "sometimes"}, wantErr: "METABOL_UPDATE"},
+		{name: "invalid catchup environment", config: validConfig(), env: map[string]string{"METABOL_CATCHUP": "sometimes"}, wantErr: "METABOL_CATCHUP"},
 		{
 			name: "invalid yaml timezone",
 			config: func() *Config {

@@ -86,8 +86,13 @@ func run(
 	if pipeline == nil {
 		pipeline = NewPipeline(RSSnipFetcher{}, NewMDHQ(nil))
 	}
+	catchup := config.Catchup
+	if config.At != nil && catchup {
+		fmt.Fprintln(errStream, "warning: at is set; catchup is ignored")
+		catchup = false
+	}
 	var failures []error
-	for _, window := range windows {
+	for i, window := range windows {
 		if failure, canceled := contextFailure(ctx, nil); canceled {
 			if !errors.Is(errors.Join(failures...), failure) {
 				fmt.Fprintln(errStream, failure)
@@ -95,10 +100,15 @@ func run(
 			}
 			break
 		}
+		until := window.End
+		var untilPointer *time.Time
+		if !catchup || i != len(windows)-1 {
+			untilPointer = &until
+		}
 		pipelineErr := pipeline.Run(ctx, PipelineRequest{
 			Sources: sources,
 			Since:   window.Start,
-			Until:   window.End,
+			Until:   untilPointer,
 			Root:    config.Root,
 			Assets:  config.Assets,
 			Update:  config.Update,

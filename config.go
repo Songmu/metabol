@@ -21,6 +21,7 @@ type Config struct {
 	Root     string       `yaml:"root"`
 	Assets   *bool        `yaml:"assets"`
 	Update   *bool        `yaml:"update"`
+	Catchup  *bool        `yaml:"catchup"`
 	Timezone string       `yaml:"timezone"`
 	Window   WindowConfig `yaml:"window"`
 	Sources  []Source     `yaml:"sources"`
@@ -203,7 +204,7 @@ func (v *BoolValue) String() string {
 	return "true"
 }
 
-// IsBoolFlag allows --assets and --update to mean true without an argument.
+// IsBoolFlag allows boolean options to mean true without an argument.
 func (*BoolValue) IsBoolFlag() bool {
 	return true
 }
@@ -247,6 +248,7 @@ type CLIValues struct {
 	Root        StringValue
 	Assets      BoolValue
 	Update      BoolValue
+	Catchup     BoolValue
 	Timezone    StringValue
 	At          StringValue
 	WindowCount IntValue
@@ -258,6 +260,7 @@ func (v *CLIValues) RegisterFlags(fs *flag.FlagSet) {
 	fs.Var(&v.Root, "root", "Markdown output root")
 	fs.Var(&v.Assets, "assets", "download article assets")
 	fs.Var(&v.Update, "update", "update existing articles")
+	fs.Var(&v.Catchup, "catchup", "extend the latest completed window to the present")
 	fs.Var(&v.Timezone, "timezone", "timezone used for window calculation")
 	fs.Var(&v.At, "at", "select the window containing this date or time")
 	fs.Var(&v.WindowCount, "window-count", "number of consecutive windows to process (1-366)")
@@ -310,6 +313,7 @@ type ResolvedConfig struct {
 	Root        string
 	Assets      bool
 	Update      bool
+	Catchup     bool
 	Location    *time.Location
 	Daily       DailyTime
 	WindowCount int
@@ -373,6 +377,10 @@ func resolveConfig(cli CLIValues, config *Config, lookupEnv LookupEnvFunc, rootF
 	if err != nil {
 		return nil, err
 	}
+	catchup, err := resolveBool(cli.Catchup, "METABOL_CATCHUP", config.Catchup, false, lookupEnv)
+	if err != nil {
+		return nil, err
+	}
 
 	timezone := resolveString(cli.Timezone, "METABOL_TIMEZONE", config.Timezone, lookupEnv)
 	location := time.Local
@@ -415,6 +423,7 @@ func resolveConfig(cli CLIValues, config *Config, lookupEnv LookupEnvFunc, rootF
 		Root:        root,
 		Assets:      assets,
 		Update:      update,
+		Catchup:     catchup,
 		Location:    location,
 		Daily:       daily,
 		WindowCount: windowCount,

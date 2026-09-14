@@ -119,6 +119,7 @@ The available settings are:
 | `root` | `--root` | `METABOL_ROOT` | Path string | Configuration file directory | Markdown output directory |
 | `assets` | `--assets` | `METABOL_ASSETS` | Boolean | `false` | Download article assets |
 | `update` | `--update` | `METABOL_UPDATE` | Boolean | `false` | Re-evaluate existing Markdown |
+| `catchup` | `--catchup` | `METABOL_CATCHUP` | Boolean | `false` | Extend the newest selected window through the latest feed contents |
 | `timezone` | `--timezone` | `METABOL_TIMEZONE` | IANA timezone string | Local timezone | Timezone used to calculate processing windows |
 | - | `--config` | `METABOL_CONFIG` | Path string | `metabol.yaml` | Configuration file to read |
 | - | `--at` | `METABOL_AT` | RFC 3339 timestamp or `YYYY-MM-DD` | Not set | Select the window containing the specified date or time; when omitted, the most recently completed window is used |
@@ -146,6 +147,19 @@ run at `2026-09-11 19:00 JST` processes:
 Runs at `08:00`, `14:30`, or `23:00` on September 11 therefore select the same
 logical window.
 
+`catchup`, `--catchup`, or `METABOL_CATCHUP` removes the upper bound from the
+newest selected window. With the same boundary and execution time, catchup
+collects from `2026-09-10 07:00 JST` through the latest items currently
+available from each feed:
+
+```console
+$ metabol --catchup
+```
+
+This extends only the newest selected window. When `window.count` is greater
+than one, earlier windows remain bounded and are processed normally. Catchup
+is a one-shot fetch; it does not keep metabol running to watch for new items.
+
 `--at` selects the `[start, end)` window containing the supplied value rather
 than the last complete window:
 
@@ -158,6 +172,11 @@ RFC 3339 timestamps and `YYYY-MM-DD` dates are accepted. A date without a time
 means `00:00` in the configured timezone. A value exactly on a boundary belongs
 to the window beginning at that boundary. Backfills are best effort because a
 feed may no longer contain old items.
+
+If `at` and catchup are both set, `at` takes precedence. Metabol performs the
+bounded backfill and writes a warning to stderr that catchup was ignored. This
+allows scheduled configuration to keep catchup enabled while a manual run
+supplies `at`.
 
 `window.count`, `--window-count`, or `METABOL_WINDOW_COUNT` selects multiple
 consecutive windows. The default is `1`. The selected window is the newest;
@@ -222,7 +241,7 @@ jobs:
           config: metabol.yaml
           root: articles
           timezone: Asia/Tokyo
-          at: "2026-09-11"
+          catchup: true
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() && steps.metabol.outputs.count > 0 }}
         with:
@@ -230,13 +249,15 @@ jobs:
           path: ${{ steps.metabol.outputs.manifest }}
 ```
 
-Inputs are `config`, `root`, `assets`, `update`, `timezone`, `at`, and
-`window-count`. The action installs the `metabol` release matching the action
-version and the `@songmu/mdhq` version locked in its bundled
+Inputs are `config`, `root`, `assets`, `update`, `catchup`, `timezone`, `at`,
+and `window-count`. The action installs the `metabol` release matching the
+action version and the `@songmu/mdhq` version locked in its bundled
 `package-lock.json`.
 Optional CLI inputs are omitted when empty, so configuration and
 environment-variable precedence remains intact. Explicit `false` values for
-`assets` and `update` are forwarded to the CLI.
+`assets`, `update`, and `catchup` are forwarded to the CLI. Supplying `at`
+while catchup is enabled performs the bounded `at` backfill and emits the same
+warning as the CLI.
 
 The action exposes:
 

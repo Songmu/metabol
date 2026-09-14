@@ -65,6 +65,10 @@ func emptyLookup(string) (string, bool) {
 	return "", false
 }
 
+func timePointer(value time.Time) *time.Time {
+	return &value
+}
+
 func assertContains(t *testing.T, value, want string) {
 	t.Helper()
 	if !strings.Contains(value, want) {

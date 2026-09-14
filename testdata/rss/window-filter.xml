@@ -5,6 +5,11 @@
     <link>https://example.com/</link>
     <description>Example feed</description>
     <item>
+      <guid>ongoing</guid>
+      <link>https://example.com/ongoing</link>
+      <pubDate>Sat, 12 Sep 2026 03:00:00 GMT</pubDate>
+    </item>
+    <item>
       <guid>included</guid>
       <link>https://example.com/included</link>
       <pubDate>Fri, 11 Sep 2026 00:00:00 GMT</pubDate>
