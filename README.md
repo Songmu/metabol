@@ -222,6 +222,12 @@ calculation errors fail before article processing.
 
 ## GitHub Action
 
+> [!CAUTION]
+> Run this workflow in a private repository. Archived articles may contain
+> third-party copyrighted content, and publishing the repository may
+> redistribute that content. Ensure that your use complies with applicable
+> permissions, licenses, and terms.
+
 Use the GitHub Action to collect articles from a workflow. The following
 example saves articles under `articles`, commits and pushes any changes, and
 uploads the processing results:
