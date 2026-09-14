@@ -2,7 +2,7 @@
 set -euo pipefail
 
 cd "$GITHUB_WORKSPACE"
-metabol_version="v0.0.2"
+metabol_version="v0.0.3"
 metabol_bin="$(mktemp -d)"
 mdhq_prefix="$(mktemp -d "${RUNNER_TEMP%/}/mdhq.XXXXXX")"
 trap 'rm -rf "$metabol_bin" "$mdhq_prefix"' EXIT
