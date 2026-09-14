@@ -87,7 +87,7 @@ sources:
 ```yaml
 sources:
   - name: example # Reserved for future source metadata.
-  - url: https://example.com/feed
+    url: https://example.com/feed
 ```
 
 The object form also accepts an optional `name` reserved for future source
