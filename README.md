@@ -52,8 +52,6 @@ $ npm ci
 $ export PATH="$PWD/node_modules/.bin:$PATH"
 ```
 
-The locked dependency graph requires Node.js 22.19.0 or later.
-
 ## Configuration
 
 Create a starter configuration in the current directory:
@@ -88,6 +86,7 @@ sources:
 
 ```yaml
 sources:
+  - name: example # Reserved for future source metadata.
   - url: https://example.com/feed
 ```
 
@@ -223,9 +222,9 @@ calculation errors fail before article processing.
 
 ## GitHub Action
 
-The repository includes a composite action that installs `metabol` and an
-isolated, lockfile-pinned `@songmu/mdhq`, provisions Node.js 24.21.0, and then
-captures the JSONL processing results written to stdout in a file:
+Use the GitHub Action to collect articles from a workflow. The following
+example saves articles under `articles`, commits and pushes any changes, and
+uploads the processing results:
 
 ```yaml
 jobs:
@@ -261,14 +260,7 @@ jobs:
 ```
 
 Inputs are `config`, `root`, `assets`, `update`, `catchup`, `timezone`, `at`,
-and `window-count`. The action installs the `metabol` release matching the
-action version and the `@songmu/mdhq` version locked in its bundled
-`package-lock.json`.
-Optional CLI inputs are omitted when empty, so configuration and
-environment-variable precedence remains intact. Explicit `false` values for
-`assets`, `update`, and `catchup` are forwarded to the CLI. Supplying `at`
-while catchup is enabled performs the bounded `at` backfill and emits the same
-warning as the CLI.
+and `window-count`.
 
 The action exposes:
 
@@ -277,21 +269,9 @@ The action exposes:
 | `results` | Absolute path to the captured JSONL processing results |
 | `count` | Number of result records |
 
-The file referenced by `results` is a capture of the CLI stdout documented
-above. The `results` output value is the file path, not the JSONL content
-itself. `count` therefore normally equals the number of successfully emitted
-article records.
-
-The outputs are initialized before installation and updated after `metabol`
-runs. They therefore remain available with an empty results file and count `0`
-if setup fails, or with a partial results file and its record count if `metabol`
-exits nonzero. Runtime failures preserve the original `metabol` or `tee` status.
-The example commits and pushes changes under `articles`, then uploads the
-results, only when at least one article record was emitted. The
-`!cancelled()` status check allows these steps to run when `metabol` exits
-nonzero after partially succeeding, while still skipping them when the
-workflow is canceled. The `contents: write` permission and checkout
-credentials allow the workflow to push the commit with `GITHUB_TOKEN`.
+`results` points to the JSONL results file, and `count` is the number of
+successfully processed articles. Successful articles and results remain
+available even if another article fails.
 
 ## Agent Skill
 
