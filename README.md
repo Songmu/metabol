@@ -231,10 +231,10 @@ captures the JSONL processing results written to stdout in a file:
 jobs:
   collect:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
       - id: metabol
         uses: Songmu/metabol@v0
         with:
@@ -242,6 +242,17 @@ jobs:
           root: articles
           timezone: Asia/Tokyo
           catchup: true
+      - name: Commit and push articles
+        if: ${{ !cancelled() && steps.metabol.outputs.count > 0 }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add articles
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Update articles"
+          git push
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() && steps.metabol.outputs.count > 0 }}
         with:
@@ -275,10 +286,12 @@ The outputs are initialized before installation and updated after `metabol`
 runs. They therefore remain available with an empty results file and count `0`
 if setup fails, or with a partial results file and its record count if `metabol`
 exits nonzero. Runtime failures preserve the original `metabol` or `tee` status.
-The example uploads the results only when at least one article record was
-emitted. The `!cancelled()` status check allows this step to run when `metabol`
-exits nonzero after partially succeeding, while still skipping it when the
-workflow is canceled.
+The example commits and pushes changes under `articles`, then uploads the
+results, only when at least one article record was emitted. The
+`!cancelled()` status check allows these steps to run when `metabol` exits
+nonzero after partially succeeding, while still skipping them when the
+workflow is canceled. The `contents: write` permission and checkout
+credentials allow the workflow to push the commit with `GITHUB_TOKEN`.
 
 ## Agent Skill
 
