@@ -27,11 +27,11 @@ inputs:
     description: Number of consecutive logical windows to process (1-366)
     required: false
 outputs:
-  manifest:
-    description: Absolute path to the JSONL manifest
-    value: ${{ steps.metabol.outputs.manifest }}
+  results:
+    description: Absolute path to the JSONL processing results
+    value: ${{ steps.metabol.outputs.results }}
   count:
-    description: Number of nonempty lines in the JSONL manifest
+    description: Number of result records
     value: ${{ steps.metabol.outputs.count }}
 runs:
   using: composite
