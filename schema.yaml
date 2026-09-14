@@ -24,6 +24,10 @@ properties:
     type: boolean
     default: false
     description: Re-evaluate existing Markdown files.
+  catchup:
+    type: boolean
+    default: false
+    description: Extend the latest completed processing window through the latest feed contents.
   timezone:
     type: string
     minLength: 1

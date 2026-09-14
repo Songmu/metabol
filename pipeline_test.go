@@ -26,11 +26,12 @@ func TestRSSnipFetcherNormalizesOnlySourceURLScheme(t *testing.T) {
 	defer server.Close()
 
 	sourceURL := "HtTp" + strings.TrimPrefix(server.URL, "http") + requestURI
+	until := time.Date(2026, 9, 12, 0, 0, 0, 0, time.UTC)
 	items, err := (RSSnipFetcher{}).Fetch(
 		context.Background(),
 		sourceURL,
 		time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC),
-		time.Date(2026, 9, 12, 0, 0, 0, 0, time.UTC),
+		&until,
 	)
 	if err != nil {
 		t.Fatalf("Fetch(%q) returned error: %v", sourceURL, err)
@@ -47,7 +48,7 @@ func TestRSSnipFetcherRejectsUnparseableSourceURLSafely(t *testing.T) {
 		context.Background(),
 		sourceURL,
 		time.Time{},
-		time.Time{},
+		nil,
 	)
 	if err == nil {
 		t.Fatal("Fetch error = nil, want invalid URL error")
@@ -65,7 +66,7 @@ func TestRSSnipFetcherRejectsUnparseableSourceURLSafely(t *testing.T) {
 type fetchCall struct {
 	source string
 	since  time.Time
-	until  time.Time
+	until  *time.Time
 }
 
 type fakeFeedResponse struct {
@@ -81,7 +82,8 @@ type fakeFeedFetcher struct {
 func (f *fakeFeedFetcher) Fetch(
 	_ context.Context,
 	source string,
-	since, until time.Time,
+	since time.Time,
+	until *time.Time,
 ) ([]FeedItem, error) {
 	f.calls = append(f.calls, fetchCall{source: source, since: since, until: until})
 	response := f.responses[source]
@@ -158,7 +160,7 @@ func TestCollectFeedsPreservesOrderDeduplicatesAndContinues(t *testing.T) {
 		fetcher,
 		[]string{"feed-a", "feed-b", "feed-c"},
 		since,
-		until,
+		&until,
 	)
 	if err == nil || !strings.Contains(err.Error(), `fetch source "feed-b": feed unavailable`) {
 		t.Fatalf("CollectFeeds error = %v", err)
@@ -172,9 +174,9 @@ func TestCollectFeedsPreservesOrderDeduplicatesAndContinues(t *testing.T) {
 		t.Fatalf("CollectFeeds URLs = %#v, want %#v", got, want)
 	}
 	wantCalls := []fetchCall{
-		{source: "feed-a", since: since, until: until},
-		{source: "feed-b", since: since, until: until},
-		{source: "feed-c", since: since, until: until},
+		{source: "feed-a", since: since, until: timePointer(until)},
+		{source: "feed-b", since: since, until: timePointer(until)},
+		{source: "feed-c", since: since, until: timePointer(until)},
 	}
 	if !reflect.DeepEqual(fetcher.calls, wantCalls) {
 		t.Fatalf("fetch calls = %#v, want %#v", fetcher.calls, wantCalls)
@@ -376,7 +378,7 @@ func TestCollectFeedsRejectsNonHTTPArticleURLs(t *testing.T) {
 		fetcher,
 		[]string{"feed-a"},
 		time.Time{},
-		time.Time{},
+		nil,
 	)
 	want := []CollectedURL{
 		{URL: "https://example.com/ok", SourceURL: "feed-a"},
@@ -431,7 +433,7 @@ func TestCollectFeedsStopsWhenContextIsCanceled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	fetcher := &fakeFeedFetcher{responses: map[string]fakeFeedResponse{}}
-	_, err := CollectFeeds(ctx, fetcher, []string{"feed-a", "feed-b"}, time.Time{}, time.Time{})
+	_, err := CollectFeeds(ctx, fetcher, []string{"feed-a", "feed-b"}, time.Time{}, nil)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("CollectFeeds error = %v, want context.Canceled", err)
 	}
@@ -472,7 +474,8 @@ func TestCollectFeedsPreservesFetchFailureOnCancellation(t *testing.T) {
 			fetcher := feedFetcherFunc(func(
 				_ context.Context,
 				source string,
-				_, _ time.Time,
+				_ time.Time,
+				_ *time.Time,
 			) ([]FeedItem, error) {
 				if source == "feed-a" {
 					return []FeedItem{{URL: "https://example.com/1"}}, nil
@@ -486,7 +489,7 @@ func TestCollectFeedsPreservesFetchFailureOnCancellation(t *testing.T) {
 				fetcher,
 				[]string{"feed-a", "feed-b", "feed-c"},
 				time.Time{},
-				time.Time{},
+				nil,
 			)
 
 			if !errors.Is(err, tt.ctxErr) {
@@ -512,7 +515,8 @@ func TestCollectFeedsFetchFailurePreservesCancellationWithoutURLs(t *testing.T) 
 	fetcher := feedFetcherFunc(func(
 		_ context.Context,
 		_ string,
-		_, _ time.Time,
+		_ time.Time,
+		_ *time.Time,
 	) ([]FeedItem, error) {
 		ctx.err = context.Canceled
 		return nil, fetchErr
@@ -523,7 +527,7 @@ func TestCollectFeedsFetchFailurePreservesCancellationWithoutURLs(t *testing.T) 
 		fetcher,
 		[]string{"feed-a"},
 		time.Time{},
-		time.Time{},
+		nil,
 	)
 
 	if !errors.Is(err, context.Canceled) {
@@ -591,7 +595,8 @@ func TestPipelineRunReportsFetchFailureAndCancellationOnce(t *testing.T) {
 	fetcher := feedFetcherFunc(func(
 		_ context.Context,
 		source string,
-		_, _ time.Time,
+		_ time.Time,
+		_ *time.Time,
 	) ([]FeedItem, error) {
 		if source == "feed-a" {
 			return []FeedItem{{URL: "https://example.com/1"}}, nil
@@ -698,7 +703,8 @@ func TestPipelineRunDoesNotRepeatCancellationLoggedDuringCollection(t *testing.T
 	fetcher := feedFetcherFunc(func(
 		_ context.Context,
 		source string,
-		_, _ time.Time,
+		_ time.Time,
+		_ *time.Time,
 	) ([]FeedItem, error) {
 		if source == "feed-a" {
 			cancel()
@@ -731,7 +737,7 @@ type feedFetcherFunc func(
 	context.Context,
 	string,
 	time.Time,
-	time.Time,
+	*time.Time,
 ) ([]FeedItem, error)
 
 type mutableErrorContext struct {
@@ -746,7 +752,8 @@ func (c *mutableErrorContext) Err() error {
 func (f feedFetcherFunc) Fetch(
 	ctx context.Context,
 	source string,
-	since, until time.Time,
+	since time.Time,
+	until *time.Time,
 ) ([]FeedItem, error) {
 	return f(ctx, source, since, until)
 }

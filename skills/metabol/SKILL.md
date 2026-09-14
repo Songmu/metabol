@@ -64,7 +64,7 @@ CLI flag > METABOL_* environment variable > configuration file > default
 ```
 
 Useful overrides include `--root`, `--assets`, `--update`, `--timezone`,
-`--at`, and `--window-count`.
+`--catchup`, `--at`, and `--window-count`.
 
 ## Choose time windows deliberately
 
@@ -81,6 +81,16 @@ metabol --at 2026-09-11T10:30:00+09:00
 
 The selected window contains the specified instant. An instant exactly on a
 boundary belongs to the window that starts at that boundary.
+
+Use `--catchup` for a one-shot fetch that extends the newest selected window
+through the latest items currently available from each feed:
+
+```bash
+metabol --catchup
+```
+
+Catchup is not a watch or streaming mode. If `--at` is also specified, `--at`
+takes precedence and metabol warns that catchup was ignored.
 
 Use `--window-count` to include earlier consecutive windows. Processing always
 runs from oldest to newest:
