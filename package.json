@@ -2,6 +2,6 @@
   "name": "metabol",
   "private": true,
   "dependencies": {
-    "@songmu/mdhq": "0.0.6"
+    "@songmu/mdhq": "0.0.7"
   }
 }
