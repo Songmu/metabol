@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.0.4](https://github.com/Songmu/metabol/compare/v0.0.3...v0.0.4) - 2026-09-17
+
+- udpate mhdq version for charset detection by @Songmu in https://github.com/Songmu/metabol/pull/33
+
 ## [v0.0.3](https://github.com/Songmu/metabol/compare/v0.0.2...v0.0.3) - 2026-09-14
 
 - Add catchup window option by @Songmu in https://github.com/Songmu/metabol/pull/28
