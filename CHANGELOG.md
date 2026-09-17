@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.0.5](https://github.com/Songmu/metabol/compare/v0.0.4...v0.0.5) - 2026-09-17
+
+- update package-lock.json by @Songmu in https://github.com/Songmu/metabol/pull/34
+
 ## [v0.0.4](https://github.com/Songmu/metabol/compare/v0.0.3...v0.0.4) - 2026-09-17
 
 - udpate mhdq version for charset detection by @Songmu in https://github.com/Songmu/metabol/pull/33
